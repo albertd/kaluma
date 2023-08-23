@@ -653,69 +653,43 @@ JERRYXX_FUN(buffered_gc_ctor_fn) {
       gc_set_rotation(gc_handle, rotation);
 
       // bpp
-      uint8_t bpp = (uint8_t)jerryxx_get_property_number(
-          options, MSTR_GRAPHICS_BPP, 1);  // should be 1 or 16
+      int8_t bpp = (int8_t)jerryxx_get_property_number(
+          options, MSTR_GRAPHICS_BPP, 1);  // should be 1, 3 or 16
+
+      uint16_t size = 0;
+
       if (bpp > 3) {
         gc_handle->bpp = 16;
+        size = gc_prim_16bit_setup(gc_handle, options);
       } else if (bpp > 1) {
         gc_handle->bpp = 3;
+        size = gc_prim_3bit_setup(gc_handle, options);
       } else {
         gc_handle->bpp = 1;
+        size = gc_prim_1bit_setup(gc_handle, options);
       }
 
-      // display callback
-      jerry_value_t display_js_cb =
-          jerryxx_get_property(options, MSTR_GRAPHICS_DISPLAY);
-      jerryxx_set_property(JERRYXX_GET_THIS, MSTR_GRAPHICS_DISPLAY_CB,
-                           display_js_cb);
-      gc_handle->display_js_cb = display_js_cb;  // reference without acquire
-      jerry_release_value(display_js_cb);
+      if (size != 0) {
+        // display callback
+        jerry_value_t display_js_cb = jerryxx_get_property(options, MSTR_GRAPHICS_DISPLAY);
+        jerryxx_set_property(JERRYXX_GET_THIS, MSTR_GRAPHICS_DISPLAY_CB, display_js_cb);
+        gc_handle->display_js_cb = display_js_cb;  // reference without acquire
+        jerry_release_value(display_js_cb);
+
+        jerry_value_t buffer = jerry_create_typedarray(JERRY_TYPEDARRAY_UINT8, size);
+        jerryxx_set_property(JERRYXX_GET_THIS, MSTR_GRAPHICS_BUFFER, buffer);
+        jerry_length_t byteOffset = 0;
+        jerry_length_t byteLength = 0;
+        jerry_value_t buf =
+          jerry_get_typedarray_buffer(buffer, &byteOffset, &byteLength);
+        gc_handle->buffer = jerry_get_arraybuffer_pointer(buf);
+        gc_handle->buffer_size = size;
+        jerry_release_value(buf);
+        jerry_release_value(buffer);
+      }
     }
   }
 
-  // setup primitive functions
-  if (gc_handle->bpp == 1) {
-    gc_handle->set_pixel_cb = gc_prim_1bit_set_pixel;
-    gc_handle->get_pixel_cb = gc_prim_1bit_get_pixel;
-    gc_handle->draw_hline_cb = gc_prim_1bit_draw_hline;
-    gc_handle->draw_vline_cb = gc_prim_1bit_draw_vline;
-    gc_handle->fill_rect_cb = gc_prim_1bit_fill_rect;
-    gc_handle->fill_screen_cb = gc_prim_1bit_fill_screen;
-  } else if (gc_handle->bpp == 3) {
-    gc_handle->set_pixel_cb = gc_prim_3bit_set_pixel;
-    gc_handle->get_pixel_cb = gc_prim_3bit_get_pixel;
-    gc_handle->draw_hline_cb = gc_prim_3bit_draw_hline;
-    gc_handle->draw_vline_cb = gc_prim_3bit_draw_vline;
-    gc_handle->fill_rect_cb = gc_prim_3bit_fill_rect;
-    gc_handle->fill_screen_cb = gc_prim_3bit_fill_screen;
-  } else {
-    gc_handle->set_pixel_cb = gc_prim_16bit_set_pixel;
-    gc_handle->get_pixel_cb = gc_prim_16bit_get_pixel;
-    gc_handle->draw_hline_cb = gc_prim_16bit_draw_hline;
-    gc_handle->draw_vline_cb = gc_prim_16bit_draw_vline;
-    gc_handle->fill_rect_cb = gc_prim_16bit_fill_rect;
-    gc_handle->fill_screen_cb = gc_prim_16bit_fill_screen;
-  }
-
-  // allocate buffer
-  size_t size = gc_handle->device_width * gc_handle->device_height;
-  if (gc_handle->bpp == 1) {
-    size = size / 8;
-  } else if (gc_handle->bpp == 3) {
-    size = size / 2;
-  } else {
-    size = size * 2;
-  }
-  jerry_value_t buffer = jerry_create_typedarray(JERRY_TYPEDARRAY_UINT8, size);
-  jerryxx_set_property(JERRYXX_GET_THIS, MSTR_GRAPHICS_BUFFER, buffer);
-  jerry_length_t byteOffset = 0;
-  jerry_length_t byteLength = 0;
-  jerry_value_t buf =
-      jerry_get_typedarray_buffer(buffer, &byteOffset, &byteLength);
-  gc_handle->buffer = jerry_get_arraybuffer_pointer(buf);
-  gc_handle->buffer_size = size;
-  jerry_release_value(buf);
-  jerry_release_value(buffer);
   return jerry_create_undefined();
 }
 

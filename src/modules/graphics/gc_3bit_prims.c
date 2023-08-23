@@ -74,8 +74,7 @@ static uint16_t color_from_3bit(uint8_t color) {
  * @param  y
  * @param  color
  */
-static void gc_prim_3bit_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                            uint16_t color) {
+static void gc_prim_3bit_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, uint16_t color) {
 
 
   if ((x >= 0) && (x < handle->width) && (y >= 0) && (y < handle->height)) {
@@ -214,4 +213,3 @@ uint16_t gc_prim_3bit_setup(gc_handle_t* handle, jerry_value_t options) {
   // allocate buffer
   return ((handle->device_width * handle->device_height) / 2);
 }
-

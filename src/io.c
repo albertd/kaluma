@@ -39,7 +39,6 @@ static void km_io_tty_run();
 static void km_io_watch_run();
 static void km_io_uart_run();
 static void km_io_idle_run();
-static void km_io_idle_run();
 
 /* general handle functions */
 

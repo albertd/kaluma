@@ -40,10 +40,6 @@
 #include "tty.h"
 #include "tusb.h"
 #include "uart.h"
-#ifdef PICO_CYW43
-#include "module_pico_cyw43.h"
-#include <pico/cyw43_arch.h>
-#endif /* PICO_CYW43 */
 
 /**
  * Delay in milliseconds
@@ -104,9 +100,6 @@ void km_system_init() {
 }
 
 void km_system_cleanup() {
-#ifdef PICO_CYW43
-  km_cyw43_deinit();
-#endif
   km_adc_cleanup();
   km_pwm_cleanup();
   km_i2c_cleanup();
@@ -126,7 +119,4 @@ uint8_t km_running_script_check() {
 }
 
 void km_custom_infinite_loop() {
-#ifdef PICO_CYW43
-  km_cyw43_infinite_loop();
-#endif
 }

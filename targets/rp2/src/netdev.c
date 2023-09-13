@@ -507,10 +507,12 @@ int wifi_reset() {
   }
 
   /* Reset and power up the WL chip */
-  cyw43_hal_pin_low(CYW43_PIN_WL_REG_ON);
-  cyw43_delay_ms(20);
-  cyw43_hal_pin_high(CYW43_PIN_WL_REG_ON);
-  cyw43_delay_ms(50);
+  if (__cyw43_status != CYW43_STATUS_DISABLED) {
+    cyw43_hal_pin_low(CYW43_PIN_WL_REG_ON);
+    cyw43_delay_ms(20);
+    cyw43_hal_pin_high(CYW43_PIN_WL_REG_ON);
+    cyw43_delay_ms(50);
+  }
 
   if (cyw43_arch_init() != 0) {
     uint8_t mac_addr[6] = {0};

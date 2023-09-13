@@ -41,7 +41,7 @@ socket_data_t socket_map[KALUMA_MAX_SOCKETS];
 
 void socket_connected_implementation (const uint8_t fd) {
   if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS)) {
-    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_NET_SOCKET_CONNECT_CB);
+    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_CONNECT_CB);
     if (jerry_value_is_function(callback)) {
         jerry_value_t this_val = jerry_create_undefined();
         jerry_call_function(callback, this_val, NULL, 0);
@@ -53,7 +53,7 @@ void socket_connected_implementation (const uint8_t fd) {
 
 void socket_received_implementation (const uint8_t fd, const uint16_t length, const uint8_t* buffer, const ip_address_t* address, const uint16_t port) {
   if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS)) {
-    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_NET_SOCKET_READ_CB);
+    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_READ_CB);
     if (jerry_value_is_function(callback)) {
       jerry_value_t this_val = jerry_create_undefined();
       jerry_value_t data = jerry_create_string((const jerry_char_t *)buffer);
@@ -70,14 +70,14 @@ void socket_accepted_implementation (const uint8_t fd, const uint8_t accepted) {
   if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) && (accepted < KALUMA_MAX_SOCKETS)) {
     socket_map[accepted].fd = accepted;
     socket_map[accepted].obj = jerry_create_object();
-    jerryxx_set_property_number(socket_map[accepted].obj, MSTR_NET_SOCKET_FD, accepted);
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_PTCL, "STREAM");
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_STATE, "CONNECTED");
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_LADDR, "0.0.0.0");
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_LPORT, "0");
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_RADDR, "0.0.0.0");
-    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_NET_SOCKET_RPORT, "0");
-    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_NET_SOCKET_ACCEPT_CB);
+    jerryxx_set_property_number(socket_map[accepted].obj, MSTR_FD, accepted);
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_PTCL, "STREAM");
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_STATE, "CONNECTED");
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_LADDR, "0.0.0.0");
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_LPORT, "0");
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_RADDR, "0.0.0.0");
+    jerryxx_set_property_string(socket_map[accepted].obj, MSTR_RPORT, "0");
+    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_ACCEPT_CB);
     if (jerry_value_is_function(callback)) {
       jerry_value_t this_val = jerry_create_undefined();
       jerry_value_t fd_val = jerry_create_number(accepted);
@@ -92,8 +92,8 @@ void socket_accepted_implementation (const uint8_t fd, const uint8_t accepted) {
 
 void socket_closed_implementation (const uint8_t fd) {
   if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS)) {
-    jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_STATE, "CLOSED");
-    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_NET_SOCKET_CLOSE_CB);
+    jerryxx_set_property_string(socket_map[fd].obj, MSTR_STATE, "CLOSED");
+    jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_CLOSE_CB);
     if (jerry_value_is_function(callback)) {
       jerry_value_t this_val = jerry_create_undefined();
       jerry_call_function(callback, this_val, NULL, 0);
@@ -105,7 +105,7 @@ void socket_closed_implementation (const uint8_t fd) {
 }
 
 JERRYXX_FUN(net_network_ctor_fn) {
-  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
   return jerry_create_undefined();
 }
 
@@ -142,16 +142,16 @@ JERRYXX_FUN(net_network_socket) {
 
       bytes_to_string(mac_addr, 6, storage);
 
-      jerryxx_set_property_string(JERRYXX_GET_THIS, MSTR_NET_NETWORK_MAC, storage);
-      jerryxx_set_property_string(JERRYXX_GET_THIS, MSTR_NET_NETWORK_IP, "0.0.0.0");
+      jerryxx_set_property_string(JERRYXX_GET_THIS, MSTR_MAC, storage);
+      jerryxx_set_property_string(JERRYXX_GET_THIS, MSTR_IP, "0.0.0.0");
 
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_NET_SOCKET_FD, fd);
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_PTCL, socket_type);
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_STATE, "INITIALIZED");
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_LADDR, "0.0.0.0");
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_NET_SOCKET_LPORT, 0);
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_RADDR, "0.0.0.0");
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_NET_SOCKET_RPORT, 0);
+      jerryxx_set_property_number(socket_map[fd].obj, MSTR_FD, fd);
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_PTCL, socket_type);
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_STATE, "INITIALIZED");
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_LADDR, "0.0.0.0");
+      jerryxx_set_property_number(socket_map[fd].obj, MSTR_LPORT, 0);
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, "0.0.0.0");
+      jerryxx_set_property_number(socket_map[fd].obj, MSTR_RPORT, 0);
     }
   } 
   return jerry_create_number(fd);
@@ -181,23 +181,23 @@ JERRYXX_FUN(net_network_connect) {
     ip_address_t remote;
 
     if (socket_resolve (DNS_RESOLVE_TIMEOUT, addr_str, &remote) <  0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }
     else {
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_RADDR, addr_str);
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_NET_SOCKET_RPORT, port);
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, addr_str);
+      jerryxx_set_property_number(socket_map[fd].obj, MSTR_RPORT, port);
 
       if ( (socket_bind    (fd, &remote, port) < 0) ||
            (socket_connect (fd)                < 0) ) {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
       }
       else {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
         if (JERRYXX_HAS_ARG(3)) {
           jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(3));
           if (jerry_value_is_function(callback)) {
-            jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+            jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
             jerry_value_t this_val = jerry_create_undefined();
             jerry_value_t args_p[1] = { errno };
             jerry_call_function(callback, this_val, args_p, 1);
@@ -227,15 +227,15 @@ JERRYXX_FUN(net_network_write) {
     jerry_string_to_char_buffer(args_p[1], (jerry_char_t *)buffer, len);
 
     if (socket_send (fd, len, buffer) < 0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     } 
     else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
       if (JERRYXX_HAS_ARG(2)) {
         jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(2));
         if (jerry_value_is_function(callback)) {
-          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
           jerry_value_t this_val = jerry_create_undefined();
           jerry_value_t args_p[1] = {errno};
           jerry_call_function(callback, this_val, args_p, 1);
@@ -259,15 +259,15 @@ JERRYXX_FUN(net_network_close) {
   if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
 
     if (socket_close(fd) < 0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }
     else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
       if (JERRYXX_HAS_ARG(1)) {
         jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(1));
         if (jerry_value_is_function(callback)) {
-          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
           jerry_value_t this_val = jerry_create_undefined();
           jerry_value_t args_p[1] = { errno };
           jerry_call_function(callback, this_val, args_p, 1);
@@ -294,15 +294,15 @@ JERRYXX_FUN(net_network_shutdown) {
     //int8_t how = JERRYXX_GET_ARG_NUMBER(1);
 
     //if (socket_shutdown(fd, how) < 0) {
-    //  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+    //  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     //}
     //else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
       if (JERRYXX_HAS_ARG(2)) {
         jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(2));
         if (jerry_value_is_function(callback)) {
-          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
           jerry_value_t this_val = jerry_create_undefined();
           jerry_value_t args_p[1] = { errno };
           jerry_call_function(callback, this_val, args_p, 1);
@@ -334,22 +334,22 @@ JERRYXX_FUN(net_network_bind) {
     ip_address_t remote;
 
     if (socket_resolve (DNS_RESOLVE_TIMEOUT, addr_str, &remote) <  0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }
     else {
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_SOCKET_RADDR, addr_str);
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_NET_SOCKET_RPORT, port);
+      jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, addr_str);
+      jerryxx_set_property_number(socket_map[fd].obj, MSTR_RPORT, port);
 
       if (socket_bind (fd, &remote, port) < 0) {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
       }
       else {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
         if (JERRYXX_HAS_ARG(3)) {
           jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(3));
           if (jerry_value_is_function(callback)) {
-            jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+            jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
             jerry_value_t this_val = jerry_create_undefined();
             jerry_value_t args_p[1] = { errno };
             jerry_call_function(callback, this_val, args_p, 1);
@@ -374,15 +374,15 @@ JERRYXX_FUN(net_network_listen) {
 
   if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
     if (socket_listen (fd) < 0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, -1);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }
     else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
 
       if (JERRYXX_HAS_ARG(1)) {
         jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(1));
         if (jerry_value_is_function(callback)) {
-          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_NET_NETWORK_ERRNO, 0);
+          jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
           jerry_value_t this_val = jerry_create_undefined();
           jerry_value_t args_p[1] = { errno };
           jerry_call_function(callback, this_val, args_p, 1);
@@ -412,32 +412,34 @@ jerry_value_t module_net_init() {
   jerry_value_t network_prototype = jerry_create_object();
   jerryxx_set_property(net_network_ctor, "prototype", network_prototype);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_SOCKET,
+                                MSTR_SOCKET,
                                 net_network_socket);
-  jerryxx_set_property_function(network_prototype, MSTR_NET_NETWORK_GET,
+  jerryxx_set_property_function(network_prototype, 
+                                MSTR_GET,
                                 net_network_get);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_CONNECT,
+                                MSTR_CONNECT,
                                 net_network_connect);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_WRITE,
+                                MSTR_WRITE,
                                 net_network_write);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_CLOSE,
+                                MSTR_CLOSE,
                                 net_network_close);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_SHUTDOWN,
+                                MSTR_SHUTDOWN,
                                 net_network_shutdown);
-  jerryxx_set_property_function(network_prototype, MSTR_NET_NETWORK_BIND,
+  jerryxx_set_property_function(network_prototype, 
+                                MSTR_BIND,
                                 net_network_bind);
   jerryxx_set_property_function(network_prototype,
-                                MSTR_NET_NETWORK_LISTEN,
+                                MSTR_LISTEN,
                                 net_network_listen);
   jerry_release_value(network_prototype);
 
   /* pico_cyw43 module exports */
   jerry_value_t exports = jerry_create_object();
-  jerryxx_set_property(exports, MSTR_NET_SOCKET,
+  jerryxx_set_property(exports, MSTR___NETDEV,
                        net_network_ctor);
   jerry_release_value(net_network_ctor);
 

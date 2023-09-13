@@ -40,6 +40,7 @@
 #include "tty.h"
 #include "tusb.h"
 #include "uart.h"
+#include <port/wifi.h>
 
 /**
  * Delay in milliseconds
@@ -119,4 +120,5 @@ uint8_t km_running_script_check() {
 }
 
 void km_custom_infinite_loop() {
+  wifi_process();
 }

@@ -25,4 +25,8 @@
 // First load the global, by Kaluma defined magigs..
 #include <magic_strings.h>
 
+
+#define MSTR_NET_MODULE "net"
+
+
 #endif /* __NET_MAGIC_STRINGS_H */

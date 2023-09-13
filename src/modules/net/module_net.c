@@ -439,7 +439,7 @@ jerry_value_t module_net_init() {
 
   /* pico_cyw43 module exports */
   jerry_value_t exports = jerry_create_object();
-  jerryxx_set_property(exports, MSTR___NETDEV,
+  jerryxx_set_property(exports, MSTR_NET_MODULE ,
                        net_network_ctor);
   jerry_release_value(net_network_ctor);
 

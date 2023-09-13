@@ -525,7 +525,9 @@ int wifi_reset() {
 }
  
 void wifi_process() {
-  cyw43_arch_poll();
+  if(__cyw43_status != CYW43_STATUS_DISABLED){
+    cyw43_arch_poll();
+  }
 }
 
 int wifi_scan(const uint8_t seconds) {

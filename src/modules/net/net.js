@@ -1,3 +1,5 @@
+const net_native = process.binding(process.binding.net)
+global.__netdev = new net_native.net();
 var EventEmitter = require('events').EventEmitter;
 var stream = require('stream');
 

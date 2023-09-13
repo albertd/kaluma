@@ -115,6 +115,8 @@ JERRYXX_FUN(net_wifi_reset) {
 
 JERRYXX_FUN(net_wifi_scan) {
   JERRYXX_CHECK_ARG_FUNCTION_OPT(0, "callback");
+
+  printf("Pierre was here \n");
   if (JERRYXX_HAS_ARG(0)) {  // Do nothing if callback is NULL
     jerry_value_t callback = JERRYXX_GET_ARG(0);
     jerry_value_t scan_js_cb = jerry_acquire_value(callback);
@@ -471,6 +473,10 @@ JERRYXX_FUN(net_wifi_ap_get_stas) {
 }
 
 jerry_value_t module_wifi_init() {
+
+
+  wifi_reset();
+
   wifi_callbacks.callback_report = wifi_report_implementation;
   wifi_callbacks.callback_link = wifi_link_implementation;
 
@@ -507,7 +513,7 @@ jerry_value_t module_wifi_init() {
   jerry_release_value(wifi_prototype);
 
   jerry_value_t exports = jerry_create_object();
-  jerryxx_set_property(exports, MSTR___IEEE80211dev, net_wifi_ctor);
+  jerryxx_set_property(exports, MSTR_WIFI_MODULE, net_wifi_ctor);
   jerry_release_value(net_wifi_ctor);
 
   return exports;

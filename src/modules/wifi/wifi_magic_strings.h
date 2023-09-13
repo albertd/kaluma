@@ -26,6 +26,7 @@
 #include <magic_strings.h>
 
 /* AP_mode strings */
+#define MSTR_WIFI_MODULE "WiFi"
 #define MSTR_WIFI_APMODE_FN "ap_mode"
 #define MSTR_WIFI_APMODE_DISABLE_FN "disable_ap_mode"
 #define MSTR_WIFI_APMODE_GET_STAS_FN "get_clients"

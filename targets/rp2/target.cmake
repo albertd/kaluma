@@ -115,9 +115,6 @@ set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs -u _printf_float -Wl,-Map=${OUTPUT
 # For the pico-w board
 if(BOARD STREQUAL "pico-w")
   # modules for pico-w
-  set(MODULES
-  ${MODULES}
-  pico_cyw43)
   # libs for pico-w
   set(TARGET_LIBS
   ${TARGET_LIBS}

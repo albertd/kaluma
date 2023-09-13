@@ -27,12 +27,12 @@
 
 /* AP_mode strings */
 #define MSTR_WIFI_MODULE "WiFi"
-#define MSTR_WIFI_APMODE_FN "ap_mode"
-#define MSTR_WIFI_APMODE_DISABLE_FN "disable_ap_mode"
-#define MSTR_WIFI_APMODE_GET_STAS_FN "get_clients"
+#define MSTR_WIFI_APMODE_FN "apMode"
+#define MSTR_WIFI_APMODE_DISABLE_FN "disableApMode"
+#define MSTR_WIFI_APMODE_GET_STAS_FN "getWifiApClients"
 
 #define MSTR_WIFI_PASSWORD "password"
 #define MSTR_WIFI_GATEWAY "gateway"
-#define MSTR_WIFI_SUBNET_MASK "subnet_mask"
+#define MSTR_WIFI_SUBNET_MASK "subnetMask"
 
 #endif /* __WIFI_MAGIC_STRINGS_H */

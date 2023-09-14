@@ -520,10 +520,32 @@ int wifi_reset() {
   }
   return (__cyw43_status = CYW43_STATUS_STATION ? ERR_OK : -1);
 }
- 
+
+// the number of slots to wait till  
+static uint32_t scan_time;
+
 void wifi_process() {
   if (__cyw43_status != CYW43_STATUS_DISABLED) {
     cyw43_arch_poll();
+
+    cyw43_arch_lwip_begin();
+    if (__cyw43_status & CYW43_STATUS_SCANNING) {
+      bool completed = (cyw43_wifi_scan_active(&cyw43_state) == false);
+      if (completed == false) {
+        completed = (to_ms_since_boot(get_absolute_time()) >= scan_time);
+      }
+      if (completed == true) {
+        __cyw43_status &= (~CYW43_STATUS_SCANNING);
+      }
+      cyw43_arch_lwip_end();
+
+      if (completed == true) {
+        
+        if (wifi_callbacks.callback_report != NULL) {
+          wifi_callbacks.callback_report(NULL, NULL, 0, 0, 0);
+        }
+      }
+    }
   }
 }
 
@@ -535,7 +557,9 @@ int wifi_scan(const uint8_t seconds) {
 
   cyw43_arch_lwip_begin();
 
-  if ((__cyw43_status & CYW43_STATUS_SCANNING) == 0) {
+  scan_time =  to_ms_since_boot(get_absolute_time()) + (seconds * 1000);
+
+  if ((__cyw43_status & CYW43_STATUS_SCANNING) != 0) {
     cyw43_arch_lwip_end();
   }
   else {
@@ -545,26 +569,10 @@ int wifi_scan(const uint8_t seconds) {
     cyw43_wifi_scan_options_t scan_opt = {0};
     if (cyw43_wifi_scan(&cyw43_state, &scan_opt, NULL, scan_cb) < 0) {
       result = -1; // FAILED_TO_SCAN;
+      cyw43_arch_lwip_begin();
+      __cyw43_status &= (~CYW43_STATUS_SCANNING);
+      cyw43_arch_lwip_end();
     }
-    else {
-      uint16_t slots = 5 * seconds;
-
-      do {
-        #if PICO_CYW43_ARCH_POLL
-        cyw43_arch_poll();
-        cyw43_arch_wait_for_work_until(make_timeout_time_ms(200));
-        #else
-        sleep_ms(200);
-        #endif
-        slots--;
-      } while (slots);
-
-      result = 0;
-    }
-
-    cyw43_arch_lwip_begin();
-    __cyw43_status &= (~CYW43_STATUS_SCANNING);
-    cyw43_arch_lwip_end();
   }
   return (result);
 }

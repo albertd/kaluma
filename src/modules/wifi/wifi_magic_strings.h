@@ -25,6 +25,8 @@
 // FIrst load the global, by Kaluma defined magigs..
 #include <magic_strings.h>
 
+#define MSTR_SCAN_CB "scan_cb"
+
 /* AP_mode strings */
 #define MSTR_WIFI_MODULE "WiFi"
 #define MSTR_WIFI_APMODE_FN "apMode"

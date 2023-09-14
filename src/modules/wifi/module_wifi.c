@@ -31,6 +31,8 @@
 #include "wifi_magic_strings.h"
 #include "../net/module_tools.h"
 
+#include <pico/critical_section.h>
+
 #define WIFI_CONNECT_TIMEOUT    20
 #define WIFI_SCAN_TIMEOUT       10
 
@@ -50,6 +52,8 @@ typedef struct scan_data_s {
 scan_data_t*  scan_results = NULL;
 static jerry_value_t __ieee80211dev;
 
+static critical_section_t admin_lock;
+
 static int min(const int left, const int right) {
     return (left >= right ? right : left);
 }
@@ -65,6 +69,8 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
     }
  
     jerry_value_t scan_array = jerry_create_array(index);
+
+    critical_section_enter_blocking(&admin_lock);
 
     current = scan_results;
     index = 0;
@@ -102,7 +108,10 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
       current = current->next;
       free(remove);
     }
-    jerry_value_t callback = jerryxx_get_property(__ieee80211dev, "scan_cb");
+
+    critical_section_exit(&admin_lock);
+
+    jerry_value_t callback = jerryxx_get_property(__ieee80211dev, MSTR_SCAN_CB);
     if (jerry_value_is_function(callback)) {
       jerry_value_t errno = jerryxx_get_property_number(__ieee80211dev, MSTR_ERRNO, 0);
       jerry_value_t this_val = jerry_create_undefined();
@@ -114,6 +123,7 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
     jerry_release_value(scan_array);
   }
   else {
+    critical_section_enter_blocking(&admin_lock);
     scan_data_t* new_node = (scan_data_t *) malloc(sizeof(scan_data_t));
     if (new_node != NULL) {
       new_node->next = NULL;
@@ -133,15 +143,37 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
         current->next = new_node;
       }
     }
+    critical_section_exit(&admin_lock);
   }
 }
 
 static void wifi_link_implementation (const char* ssid, const uint8_t bssid[6], const bool connected) {
+  jerry_value_t callback = 0;
   if (connected) {
-    printf("Connected to %s.\n\r", ssid);
-  } else {
-    printf("Disconnected from %s.\n\r", ssid);
+    callback = jerryxx_get_property(__ieee80211dev, MSTR_CONNECT_CB);
   }
+  else {
+    callback = jerryxx_get_property(__ieee80211dev, MSTR_DISCONNECT_CB);
+  }
+
+  if (jerry_value_is_function(callback)) {
+      char buffer[19];
+      jerry_value_t info = jerry_create_object();
+
+      jerryxx_set_property_string(info, MSTR_SSID, (char*) ssid);
+
+      bytes_to_string(bssid, 6, buffer);
+      jerryxx_set_property_string(info, MSTR_BSSID, buffer);
+
+      jerry_value_t errno = jerryxx_get_property_number(__ieee80211dev, MSTR_ERRNO, 0);
+      jerry_value_t this_val = jerry_create_undefined();
+      jerry_value_t args_p[2] = {errno, info};
+      jerry_call_function(callback, this_val, args_p, 2);
+      jerry_release_value(errno);
+      jerry_release_value(info);
+  }
+
+  jerry_release_value(callback);
 }
 
 JERRYXX_FUN(net_wifi_reset) {
@@ -169,34 +201,27 @@ JERRYXX_FUN(net_wifi_reset) {
 }
 
 JERRYXX_FUN(net_wifi_scan) {
-  JERRYXX_CHECK_ARG_FUNCTION_OPT(0, "callback");
 
-  if (JERRYXX_HAS_ARG(0)) {  // Do nothing if callback is NULL
-    jerry_value_t callback = JERRYXX_GET_ARG(0);
-    jerry_value_t scan_js_cb = jerry_acquire_value(callback);
-    int ret = wifi_scan(WIFI_SCAN_TIMEOUT);
-    if (ret < 0) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO,
-                                  -1);
-      jerry_value_t errno = jerryxx_get_property_number(
-          JERRYXX_GET_THIS, MSTR_ERRNO, -1);
-      jerry_value_t this_val = jerry_create_undefined();
-      jerry_value_t args_p[1] = {errno};
-      jerry_call_function(scan_js_cb, this_val, args_p, 1);
-      jerry_release_value(errno);
-      jerry_release_value(this_val);
-    } else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
-      jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
-      jerry_value_t this_val = jerry_create_undefined();
-      jerry_value_t args_p[1] = {errno};
-      jerry_call_function(scan_js_cb, this_val, args_p, 1);
-      jerry_release_value(errno);
-      jerry_release_value(this_val);
-   }
-    scan_results = NULL;
+  scan_data_t* source = scan_results;
+
+  // We need to protect this in combination with the scan_cb.
+  // TODO: Find out how we can create a critical section in Pico
+  critical_section_enter_blocking(&admin_lock);
+  scan_results = NULL;
+  critical_section_exit(&admin_lock);
+
+  while(source != NULL) {
+    scan_data_t* current = source;
+    source = current->next;
+    free(current);
+  };
+
+  int ret = wifi_scan(WIFI_SCAN_TIMEOUT);
+  if (ret < 0) {
+    jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, ret);
   }
-  return jerry_create_undefined();
+
+  return jerry_create_number(ret);
 }
 
 JERRYXX_FUN(net_wifi_connect) {

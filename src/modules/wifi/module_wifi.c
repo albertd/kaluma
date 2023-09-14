@@ -48,7 +48,7 @@ typedef struct scan_data_s {
 } scan_data_t;
 
 scan_data_t*  scan_results = NULL;
-static jerry_value_t singleton;
+static jerry_value_t __ieee80211dev;
 
 static int min(const int left, const int right) {
     return (left >= right ? right : left);
@@ -102,9 +102,9 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
       current = current->next;
       free(remove);
     }
-    jerry_value_t callback = jerryxx_get_property_number(singleton, "scan_cb", 0);
+    jerry_value_t callback = jerryxx_get_property(__ieee80211dev, "scan_cb");
     if (jerry_value_is_function(callback)) {
-      jerry_value_t errno = jerryxx_get_property_number(singleton, MSTR_ERRNO, 0);
+      jerry_value_t errno = jerryxx_get_property_number(__ieee80211dev, MSTR_ERRNO, 0);
       jerry_value_t this_val = jerry_create_undefined();
       jerry_value_t args_p[2] = {errno, scan_array};
       jerry_call_function(callback, this_val, args_p, 2);
@@ -142,12 +142,6 @@ static void wifi_link_implementation (const char* ssid, const uint8_t bssid[6], 
   } else {
     printf("Disconnected from %s.\n\r", ssid);
   }
-}
-
-JERRYXX_FUN(net_wifi_ctor_fn) {
-  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
-  singleton = JERRYXX_GET_THIS;
-  return jerry_create_undefined();
 }
 
 JERRYXX_FUN(net_wifi_reset) {
@@ -523,41 +517,32 @@ jerry_value_t module_wifi_init() {
   wifi_callbacks.callback_report = wifi_report_implementation;
   wifi_callbacks.callback_link = wifi_link_implementation;
 
-  /* net wifi class */
-  jerry_value_t net_wifi_ctor =
-      jerry_create_external_function(net_wifi_ctor_fn);
-  jerry_value_t wifi_prototype = jerry_create_object();
-  jerryxx_set_property(net_wifi_ctor, "prototype", wifi_prototype);
-  jerryxx_set_property_function(wifi_prototype, MSTR_RESET,
+  __ieee80211dev = jerry_create_object();
+  jerryxx_set_property_function(__ieee80211dev, MSTR_RESET,
                                 net_wifi_reset);
-  jerryxx_set_property_function(wifi_prototype, MSTR_SCAN,
+  jerryxx_set_property_function(__ieee80211dev, MSTR_SCAN,
                                 net_wifi_scan);
-  jerryxx_set_property_function(wifi_prototype, MSTR_CONNECT,
+  jerryxx_set_property_function(__ieee80211dev, MSTR_CONNECT,
                                 net_wifi_connect);
-  jerryxx_set_property_function(wifi_prototype, MSTR_DISCONNECT,
+  jerryxx_set_property_function(__ieee80211dev, MSTR_DISCONNECT,
                                 net_wifi_disconnect);
-  jerryxx_set_property_function(wifi_prototype,
+  jerryxx_set_property_function(__ieee80211dev,
                                 MSTR_GET_CONNECTION,
                                 net_wifi_get_connection);
-  jerryxx_set_property_function(wifi_prototype,
+  jerryxx_set_property_function(__ieee80211dev,
                                 MSTR_WIFI_APMODE_FN,
                                 net_wifi_ap_mode);
-  jerryxx_set_property_function(wifi_prototype,
+  jerryxx_set_property_function(__ieee80211dev,
                                 MSTR_WIFI_APMODE_GET_STAS_FN,
                                 net_wifi_ap_get_stas);
-  jerryxx_set_property_function(wifi_prototype,
+  jerryxx_set_property_function(__ieee80211dev,
                                 MSTR_WIFI_APMODE_DISABLE_FN,
                                 net_wifi_disable_ap_mode);
 
-  // jerryxx_set_property_function(wifi_prototype, MSTR_GETGPIO,
+  // jerryxx_set_property_function(__ieee80211dev, MSTR_GETGPIO,
   //                              net_get_gpio);
-  // jerryxx_set_property_function(wifi_prototype, MSTR_PUTGPIO,
+  // jerryxx_set_property_function(__ieee80211dev, MSTR_PUTGPIO,
   //                              net_put_gpio);
-  jerry_release_value(wifi_prototype);
 
-  jerry_value_t exports = jerry_create_object();
-  jerryxx_set_property(exports, MSTR_WIFI_MODULE, net_wifi_ctor);
-  jerry_release_value(net_wifi_ctor);
-
-  return exports;
+  return __ieee80211dev;
 }

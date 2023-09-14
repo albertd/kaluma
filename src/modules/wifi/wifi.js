@@ -1,5 +1,4 @@
-const wifi_native = process.binding(process.binding.wifi)
-global.__ieee80211dev = new wifi_native.WiFi();
+global.__ieee80211dev = process.binding(process.binding.wifi);
 var EventEmitter = require('events').EventEmitter;
 
 class WiFi extends EventEmitter {

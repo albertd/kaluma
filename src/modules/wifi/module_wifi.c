@@ -76,11 +76,10 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
 }
 
 static void wifi_link_implementation (const char* ssid, const uint8_t bssid[6], const bool connected) {
-  if (connected == false) {
+  if (connected) {
     printf("Connected to %s.\n\r", ssid);
-  }
-  else {
-    printf("Disconnected from  %s.\n\r", ssid);
+  } else {
+    printf("Disconnected from %s.\n\r", ssid);
   }
 }
 
@@ -116,7 +115,6 @@ JERRYXX_FUN(net_wifi_reset) {
 JERRYXX_FUN(net_wifi_scan) {
   JERRYXX_CHECK_ARG_FUNCTION_OPT(0, "callback");
 
-  printf("Pierre was here \n");
   if (JERRYXX_HAS_ARG(0)) {  // Do nothing if callback is NULL
     jerry_value_t callback = JERRYXX_GET_ARG(0);
     jerry_value_t scan_js_cb = jerry_acquire_value(callback);

@@ -12,6 +12,7 @@
 
 #include <dhcpserver.h>
 
+#define CYW43_AUTH_WEP_PSK 0x00100001
 #define MAX_GPIO_NUM     2
 
 typedef enum {
@@ -33,13 +34,6 @@ typedef enum {
   CYW43_STATUS_DNS_DONE    = 0x04, /* BIT 2 */
   CYW43_STATUS_SCANNING    = 0x08  /* BIT 3 */
 } wifi_state;
-
-typedef enum {
-  CYW43_WIFI_AUTH_OPEN    = 0x00,
-  CYW43_WIFI_AUTH_WEP_PSK = 0x01, /* BIT 0 */
-  CYW43_WIFI_AUTH_WPA     = 0x02, /* BIT 1 */
-  CYW43_WIFI_AUTH_WPA2    = 0x04  /* BIT 2 */
-} cyw43_authentication;
 
 typedef struct {
   volatile socket_state state;
@@ -474,15 +468,15 @@ static int scan_cb(void *env, const cyw43_ev_scan_result_t* result) {
 
   wifi_authentication auth_mode = WIFI_AUTH_UNKNOWN;
 
-  if ((result->auth_mode & (CYW43_WIFI_AUTH_WPA | CYW43_WIFI_AUTH_WPA2)) == (CYW43_WIFI_AUTH_WPA | CYW43_WIFI_AUTH_WPA2)) {
+  if (result->auth_mode == CYW43_AUTH_WPA2_MIXED_PSK) {
      auth_mode = WIFI_AUTH_WPA2;
-  } else if (result->auth_mode & CYW43_WIFI_AUTH_WPA2) {
+  } else if (result->auth_mode == CYW43_AUTH_WPA2_AES_PSK) {
      auth_mode = WIFI_AUTH_WPA2_PSK;
-  } else if (result->auth_mode & CYW43_WIFI_AUTH_WPA) {
+  } else if (result->auth_mode == CYW43_AUTH_WPA_TKIP_PSK) {
      auth_mode = WIFI_AUTH_WPA;
-  } else if (result->auth_mode & CYW43_WIFI_AUTH_WEP_PSK) {
+  } else if (result->auth_mode == CYW43_AUTH_WEP_PSK) {
      auth_mode = WIFI_AUTH_WEP_PSK;
-  } else if (result->auth_mode == CYW43_WIFI_AUTH_OPEN) {
+  } else if (result->auth_mode == CYW43_AUTH_OPEN) {
      auth_mode = WIFI_AUTH_OPEN;
   }
 
@@ -514,7 +508,7 @@ int wifi_reset() {
     cyw43_delay_ms(50);
   }
 
-  if (cyw43_arch_init() != 0) {
+  if (cyw43_arch_init() == 0) {
     cyw43_arch_enable_sta_mode();
     uint8_t mac_addr[6] = {0};
     if (cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac_addr) >= 0) {
@@ -528,7 +522,7 @@ int wifi_reset() {
 }
  
 void wifi_process() {
-  if(__cyw43_status != CYW43_STATUS_DISABLED){
+  if (__cyw43_status != CYW43_STATUS_DISABLED) {
     cyw43_arch_poll();
   }
 }
@@ -590,31 +584,29 @@ void wifi_status(const char** ssid, const uint8_t* bssid[6]) {
 }
 
 int wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t* bssid, const wifi_authentication auth_mode, const char* password) {
-  cyw43_authentication auth = CYW43_AUTH_OPEN;
+  uint32_t auth = CYW43_AUTH_OPEN;
 
   if (auth_mode == WIFI_AUTH_WPA2) {
-      auth = (CYW43_WIFI_AUTH_WPA | CYW43_WIFI_AUTH_WPA2);
+      auth = CYW43_AUTH_WPA2_MIXED_PSK;
   } else if (auth_mode == WIFI_AUTH_WPA2_PSK) {
-      auth = CYW43_WIFI_AUTH_WPA2;
+      auth = CYW43_AUTH_WPA2_AES_PSK;
   } else if (auth_mode == WIFI_AUTH_WPA) {
-      auth = CYW43_WIFI_AUTH_WPA;
+      auth = CYW43_AUTH_WPA_TKIP_PSK;
   } else if (auth_mode == WIFI_AUTH_WEP_PSK) {
-      auth = (cyw43_authentication) 0x00100001; // no idea if this works
+      auth = CYW43_AUTH_WEP_PSK;
   } else if (auth_mode == WIFI_AUTH_OPEN) {
       auth = CYW43_AUTH_OPEN;
   }
 
   if (ssid == NULL) {
     __cyw43_drv.ssid[0] = '\0';
-  }
-  else {
+  } else {
     strncpy(__cyw43_drv.ssid, ssid, sizeof(__cyw43_drv.ssid) - 1);
   }
 
   if (bssid == NULL) {
     memset(__cyw43_drv.bssid, 0, sizeof(__cyw43_drv.bssid));
-  }
-  else {
+  } else {
     memcpy(__cyw43_drv.bssid, bssid, sizeof(__cyw43_drv.bssid));
   }
 

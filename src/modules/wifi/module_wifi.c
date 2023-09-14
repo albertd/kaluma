@@ -48,29 +48,90 @@ typedef struct scan_data_s {
 } scan_data_t;
 
 scan_data_t*  scan_results = NULL;
+static jerry_value_t singleton;
 
 static int min(const int left, const int right) {
     return (left >= right ? right : left);
 }
 
 static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6], const wifi_authentication auth, const uint8_t channel, const int strength) {
-  scan_data_t* new_node = (scan_data_t *) malloc(sizeof(scan_data_t));
-  if (new_node != NULL) {
-    new_node->next = NULL;
-    strncpy(new_node->info.ssid, ssid, sizeof(((scan_data_t*)0)->info.ssid)-1);
-    memcpy(new_node->info.bssid, bssid, sizeof(((scan_data_t*)0)->info.bssid));
-    new_node->rssi = strength;
-    new_node->channel = channel;
-    new_node->auth_mode = auth;
-    if (scan_results == NULL) {
-      scan_results = new_node;
+  // See if this si a scan completed notification. This marks the end of a scan, ready to publish..
+  if ( (ssid == NULL) && (bssid == NULL) && (auth == 0) && (channel == 0) && (strength == 0) ) {
+    uint8_t index = 0;
+    scan_data_t* current = scan_results;
+    while (current != NULL) {
+      current = current->next;
+      index++;
     }
-    else {
-      scan_data_t* current = scan_results;
-      while (current->next != NULL) {
-        current = current->next;
+ 
+    jerry_value_t scan_array = jerry_create_array(index);
+
+    current = scan_results;
+    index = 0;
+    char  buffer[33];
+    char* selected;
+
+    while (current) {
+      jerry_value_t obj = jerry_create_object();
+
+      jerryxx_set_property_string(obj, MSTR_SSID, current->info.ssid);
+
+      bytes_to_string(current->info.bssid, 6, buffer);
+      jerryxx_set_property_string(obj, MSTR_BSSID, buffer);
+
+      if ((current->auth_mode & (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) == (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) {
+        selected = "WPA2_WPA_PSK";
+      } else if (current->auth_mode & WIFI_AUTH_WPA2) {
+        selected = "WPA2_PSK";
+      } else if (current->auth_mode & WIFI_AUTH_WPA) {
+        selected = "WPA_PSK";
+      } else if (current->auth_mode & WIFI_AUTH_WEP_PSK) {
+        selected = "WEP_PSK";
+      } else if (current->auth_mode == WIFI_AUTH_OPEN) {
+        selected = "OPEN";
+      } else {
+        selected = "-"; // Unknown
       }
-      current->next = new_node;
+      jerryxx_set_property_string(obj, MSTR_SECURITY, selected);
+      jerryxx_set_property_number(obj, MSTR_RSSI, current->rssi);
+      jerryxx_set_property_number(obj, MSTR_CHANNEL, current->channel);
+      jerry_value_t ret = jerry_set_property_by_index(scan_array, index++, obj);
+      jerry_release_value(ret);
+      jerry_release_value(obj);
+      scan_data_t* remove = current;
+      current = current->next;
+      free(remove);
+    }
+    jerry_value_t callback = jerryxx_get_property_number(singleton, "scan_cb", 0);
+    if (jerry_value_is_function(callback)) {
+      jerry_value_t errno = jerryxx_get_property_number(singleton, MSTR_ERRNO, 0);
+      jerry_value_t this_val = jerry_create_undefined();
+      jerry_value_t args_p[2] = {errno, scan_array};
+      jerry_call_function(callback, this_val, args_p, 2);
+      jerry_release_value(errno);
+    }
+    jerry_release_value(callback);
+    jerry_release_value(scan_array);
+  }
+  else {
+    scan_data_t* new_node = (scan_data_t *) malloc(sizeof(scan_data_t));
+    if (new_node != NULL) {
+      new_node->next = NULL;
+      strncpy(new_node->info.ssid, ssid, sizeof(((scan_data_t*)0)->info.ssid)-1);
+      memcpy(new_node->info.bssid, bssid, sizeof(((scan_data_t*)0)->info.bssid));
+      new_node->rssi = strength;
+      new_node->channel = channel;
+      new_node->auth_mode = auth;
+      if (scan_results == NULL) {
+        scan_results = new_node;
+      }
+      else {
+        scan_data_t* current = scan_results;
+        while (current->next != NULL) {
+          current = current->next;
+        }
+        current->next = new_node;
+      }
     }
   }
 }
@@ -85,6 +146,7 @@ static void wifi_link_implementation (const char* ssid, const uint8_t bssid[6], 
 
 JERRYXX_FUN(net_wifi_ctor_fn) {
   jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
+  singleton = JERRYXX_GET_THIS;
   return jerry_create_undefined();
 }
 
@@ -130,63 +192,14 @@ JERRYXX_FUN(net_wifi_scan) {
       jerry_release_value(errno);
       jerry_release_value(this_val);
     } else {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO,
-                                  0);
-
-      uint8_t index = 0;
-      scan_data_t* current = scan_results;
-      while (current != NULL) {
-        current = current->next;
-        index++;
-      }
- 
-      jerry_value_t scan_array = jerry_create_array(index);
-
-      current = scan_results;
-      index = 0;
-      char  buffer[33];
-      char* selected;
-
-      while (current) {
-        jerry_value_t obj = jerry_create_object();
-
-        jerryxx_set_property_string(obj, MSTR_SSID, current->info.ssid);
-
-        bytes_to_string(current->info.bssid, 6, buffer);
-        jerryxx_set_property_string(obj, MSTR_BSSID, buffer);
-
-        if ((current->auth_mode & (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) == (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) {
-          selected = "WPA2_WPA_PSK";
-        } else if (current->auth_mode & WIFI_AUTH_WPA2) {
-          selected = "WPA2_PSK";
-        } else if (current->auth_mode & WIFI_AUTH_WPA) {
-          selected = "WPA_PSK";
-        } else if (current->auth_mode & WIFI_AUTH_WEP_PSK) {
-          selected = "WEP_PSK";
-        } else if (current->auth_mode == WIFI_AUTH_OPEN) {
-          selected = "OPEN";
-        } else {
-          selected = "-"; // Unknown
-        }
-        jerryxx_set_property_string(obj, MSTR_SECURITY, selected);
-        jerryxx_set_property_number(obj, MSTR_RSSI, current->rssi);
-        jerryxx_set_property_number(obj, MSTR_CHANNEL, current->channel);
-        jerry_value_t ret = jerry_set_property_by_index(scan_array, index++, obj);
-        jerry_release_value(ret);
-        jerry_release_value(obj);
-        scan_data_t* remove = current;
-        current = current->next;
-        free(remove);
-      }
-      jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
+      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
+      jerry_value_t errno = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
       jerry_value_t this_val = jerry_create_undefined();
-      jerry_value_t args_p[2] = {errno, scan_array};
-      jerry_call_function(scan_js_cb, this_val, args_p, 2);
+      jerry_value_t args_p[1] = {errno};
+      jerry_call_function(scan_js_cb, this_val, args_p, 1);
       jerry_release_value(errno);
       jerry_release_value(this_val);
-      jerry_release_value(scan_js_cb);
-      jerry_release_value(scan_array);
-    }
+   }
     scan_results = NULL;
   }
   return jerry_create_undefined();

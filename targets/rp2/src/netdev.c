@@ -515,6 +515,7 @@ int wifi_reset() {
   }
 
   if (cyw43_arch_init() != 0) {
+    cyw43_arch_enable_sta_mode();
     uint8_t mac_addr[6] = {0};
     if (cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac_addr) >= 0) {
       struct netif*    netif = &(cyw43_state.netif[CYW43_ITF_STA]);

@@ -196,40 +196,72 @@ JERRYXX_FUN(net_wifi_scan) {
 
 JERRYXX_FUN(net_wifi_connect) {
   jerry_value_t result;
+  wifi_authentication auth = WIFI_AUTH_OPEN; // Default is OPEN
 
   JERRYXX_CHECK_ARG(0, "connectInfo");
   JERRYXX_CHECK_ARG_FUNCTION_OPT(1, "callback");
-  JERRYXX_GET_ARG_STRING_AS_CHAR(0, ssid_ptr);
-
-  if ( (ssid_ptr == NULL) || (ssid_ptr[0] == '\0') ) {
-    result = jerry_create_error(JERRY_ERROR_TYPE, (const jerry_char_t *)"no SSID/BSSID error");
+  jerry_value_t connect_info = JERRYXX_GET_ARG(0);
+  jerry_value_t ssid = jerryxx_get_property(connect_info, MSTR_SSID);
+  char *ssid_str = NULL;
+  if (jerry_value_is_string(ssid)) {
+    jerry_size_t len = jerryxx_get_ascii_string_size(ssid);
+    ssid_str = malloc(len + 1);
+    jerryxx_string_to_ascii_char_buffer(ssid, (jerry_char_t*) ssid_str, len);
+    ssid_str[len] = '\0';
   }
-  else {
-    char*    ssid  = NULL;
-    uint8_t* bssid = NULL;
-    char* pw_str = NULL;
-    uint8_t raw_bssid[6];
-
-    if ( (strlen(ssid_ptr) == 17) && (string_to_bytes(ssid_ptr, raw_bssid, sizeof(raw_bssid)) == 6) ) {
-      bssid = raw_bssid;
+  jerry_release_value(ssid);
+  jerry_value_t bssid = jerryxx_get_property(connect_info, MSTR_BSSID);
+  uint8_t *bssid_ptr = NULL;
+  uint8_t bssid_arr[6];
+  if (jerry_value_is_string(bssid)) {
+    char bssid_str[18];
+    jerry_size_t len = jerryxx_get_ascii_string_size(bssid);
+    jerryxx_string_to_ascii_char_buffer(bssid, (jerry_char_t*) bssid_str, len);
+    bssid_str[len] = '\0';
+    if (string_to_bytes(bssid_str, bssid_arr, sizeof(bssid_arr)) == 6) {
+      bssid_ptr = bssid_arr;
     }
-    else {
-      ssid = ssid_ptr;
-    }
-
-    jerry_value_t connect_info = JERRYXX_GET_ARG(0);
+  }
+  jerry_release_value(bssid);
+  if ((ssid_str == NULL) && (bssid_ptr == NULL)) {
+    result = jerry_create_error(JERRY_ERROR_TYPE, (const jerry_char_t *)"no SSID/BSSID error");
+  } else {
     jerry_value_t pw = jerryxx_get_property(connect_info, MSTR_WIFI_PASSWORD);
-
-    if (!jerry_value_is_string(pw)) {
-      jerry_size_t pw_len = jerryxx_get_ascii_string_size(pw);
-      pw_str = (char*) malloc(pw_len + 1);
-      jerryxx_string_to_ascii_char_buffer(pw, (jerry_char_t*) pw_str, pw_len);
-      pw_str[pw_len] = '\0';
+    char *pw_str = NULL;
+    if (jerry_value_is_string(pw)) {
+      jerry_size_t len = jerryxx_get_ascii_string_size(pw);
+      pw_str = malloc(len + 1);
+      jerryxx_string_to_ascii_char_buffer(pw, (jerry_char_t*) pw_str, len);
+      if (len >= 8) { // Min lenght of the WPA is 8.
+        auth = WIFI_AUTH_WPA2_PSK; // Default auth is changed.
+      }
+      pw_str[len] = '\0';
     }
     jerry_release_value(pw);
+    jerry_value_t security = jerryxx_get_property(connect_info, MSTR_SECURITY);
+    if (jerry_value_is_string(security)) {
+      jerry_size_t len = jerryxx_get_ascii_string_size(security);
+      char *security_str = malloc(len + 1);
+      jerryxx_string_to_ascii_char_buffer(security, (jerry_char_t*) security_str, len);
+      security_str[len] = '\0';
+      if (!strcmp((const char *)security_str, "WPA2_WPA_PSK")) {
+        auth = WIFI_AUTH_WPA2;
+      } else if (!strcmp((const char *)security_str, "WPA2_PSK")) {
+        auth = WIFI_AUTH_WPA2_PSK;
+      } else if (!strcmp((const char *)security_str, "WPA_PSK")) {
+        auth = WIFI_AUTH_WPA;
+      } else if (!strcmp((const char *)security_str, "WEP_PSK")) {
+        auth = WIFI_AUTH_WEP_PSK;
+      } else if (!strcmp((const char *)security_str, "OPEN")) {
+        auth = WIFI_AUTH_OPEN;
+      }
+      free(security_str);
+    }
+    jerry_release_value(security);
 
-    int connect_ret = wifi_connect(WIFI_CONNECT_TIMEOUT, ssid, bssid, WIFI_AUTH_UNKNOWN, pw_str);
+    int connect_ret = wifi_connect(WIFI_CONNECT_TIMEOUT, ssid_str, bssid_ptr, auth, pw_str);
 
+    free(ssid_str);
     free(pw_str);
 
     if (connect_ret) {

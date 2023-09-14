@@ -114,13 +114,11 @@ set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs -u _printf_float -Wl,-Map=${OUTPUT
 
 # For the pico-w board
 if(BOARD STREQUAL "pico-w")
-  # modules for pico-w
   # libs for pico-w
   set(TARGET_LIBS
   ${TARGET_LIBS}
   pico_lwip
-  pico_cyw43_arch_lwip_threadsafe_background
-  pico_multicore)
+  pico_cyw43_arch_lwip_poll)
 endif()
 
 include(${CMAKE_SOURCE_DIR}/tools/kaluma.cmake)

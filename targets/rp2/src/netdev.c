@@ -509,9 +509,9 @@ int wifi_reset() {
   /* Reset and power up the WL chip */
   if (__cyw43_status != CYW43_STATUS_DISABLED) {
     cyw43_hal_pin_low(CYW43_PIN_WL_REG_ON);
-    cyw43_delay_ms(20);
+    sleep_ms(20);
     cyw43_hal_pin_high(CYW43_PIN_WL_REG_ON);
-    cyw43_delay_ms(50);
+    sleep_ms(50);
   }
 
   if (cyw43_arch_init() == 0) {

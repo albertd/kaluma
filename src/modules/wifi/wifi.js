@@ -156,6 +156,5 @@ class WiFi extends EventEmitter {
   }
 }
 
-// var wifi = new WiFi();
-// module.exports = wifi;
-exports.WiFi = WiFi;
+var wifi = new WiFi();
+module.exports = wifi;

@@ -7,6 +7,9 @@ class WiFi extends EventEmitter {
       throw new Error('IEEE 802.11 device not found');
     }
     this._dev = global.__ieee80211dev;
+    this._dev.scan_cb = (err, results) => {
+      this.emit('scanned', err, results);
+    };
     this._dev.assoc_cb = () => {
       this.emit('associated');
     };
@@ -42,11 +45,11 @@ class WiFi extends EventEmitter {
    */
   scan(cb) {
     if (this._dev) {
-      this._dev.scan((err, scanResults) => {
+      this._dev.scan((err) => {
         if (err) {
           if (cb) cb(new SystemError(this._dev.errno));
         } else {
-          if (cb) cb(null, scanResults);
+          if (cb) cb();
         }
       });
     } else {

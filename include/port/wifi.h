@@ -24,6 +24,7 @@ void wifi_status(const char** ssid, const uint8_t* bssid[6]);
 int  wifi_reset();
 int  wifi_access_point(const char* ssid, const char* passwd, const ip_address_t* gateway, const ip_address_t* mask);
 int  wifi_scan(const uint8_t seconds);
+bool wifi_is_scanning();
 int  wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t bssid[6], const wifi_authentication auth_mode, const char* password);
 int  wifi_disconnect();
 

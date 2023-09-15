@@ -1,5 +1,6 @@
 // initialize board object
 global.board.name = "pico-w";
+global.__ieee80211dev = process.binding(process.binding.wifi);
 
 // mount lfs on "/"
 const fs = require("fs");

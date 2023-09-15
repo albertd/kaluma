@@ -1,4 +1,3 @@
-global.__ieee80211dev = process.binding(process.binding.wifi);
 var EventEmitter = require('events').EventEmitter;
 
 class WiFi extends EventEmitter {

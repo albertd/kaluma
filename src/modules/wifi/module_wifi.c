@@ -535,12 +535,10 @@ JERRYXX_FUN(net_wifi_ap_get_stas) {
 }
 
 jerry_value_t module_wifi_init() {
-
-
-  wifi_reset();
-
   wifi_callbacks.callback_report = wifi_report_implementation;
   wifi_callbacks.callback_link = wifi_link_implementation;
+
+  wifi_reset();
 
   __ieee80211dev = jerry_create_object();
   jerryxx_set_property_function(__ieee80211dev, MSTR_RESET,

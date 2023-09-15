@@ -113,22 +113,19 @@ JERRYXX_FUN(net_network_socket) {
   JERRYXX_GET_ARG_STRING_AS_CHAR(1, protocol);
 
   if (strcmp(protocol, "STREAM") && strcmp(protocol, "DGRAM")) {
-    return jerry_create_error( JERRY_ERROR_TYPE, (const jerry_char_t *)"un-supported domain or protocol.");
-  } 
-  else {
+    return jerry_create_error(JERRY_ERROR_TYPE, (const jerry_char_t *)"un-supported domain or protocol.");
+  } else {
     char* socket_type;
-    if (strcmp(protocol, "STREAM")) {
+    if (!strcmp(protocol, "STREAM")) {
       fd = socket_stream();
       socket_type = "STREAM";
-    }
-    else {
+    } else {
       fd = socket_datagram();
       socket_type = "DGRAM";
     }
     if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) ) {
       return jerry_create_error_from_value(create_system_error(EREMOTEIO), true);
-    }
-    else {
+    } else {
       socket_map[fd].fd = fd;
       socket_map[fd].obj = jerry_create_object();
       uint8_t mac_addr[6];

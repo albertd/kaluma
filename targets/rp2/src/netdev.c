@@ -518,7 +518,7 @@ int wifi_reset() {
       __cyw43_status = CYW43_STATUS_STATION;
     }
   }
-  return (__cyw43_status = CYW43_STATUS_STATION ? ERR_OK : -1);
+  return (__cyw43_status == CYW43_STATUS_STATION ? ERR_OK : -1);
 }
 
 // the number of slots to wait till  

@@ -14,7 +14,7 @@ typedef enum {
   WIFI_AUTH_OPEN,
   WIFI_AUTH_WEP_PSK,
   WIFI_AUTH_WPA,
-  WIFI_AUTH_WPA2,
+  WIFI_AUTH_WPA_WPA2,
   WIFI_AUTH_WPA2_PSK
 } wifi_authentication;
 

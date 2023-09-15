@@ -78,13 +78,13 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
       bytes_to_string(current->info.bssid, 6, buffer);
       jerryxx_set_property_string(obj, MSTR_BSSID, buffer);
 
-      if ((current->auth_mode & (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) == (WIFI_AUTH_WPA | WIFI_AUTH_WPA2)) {
+      if (current->auth_mode == WIFI_AUTH_WPA_WPA2) {
         selected = "WPA2_WPA_PSK";
-      } else if (current->auth_mode & WIFI_AUTH_WPA2) {
+      } else if (current->auth_mode == WIFI_AUTH_WPA2_PSK) {
         selected = "WPA2_PSK";
-      } else if (current->auth_mode & WIFI_AUTH_WPA) {
+      } else if (current->auth_mode == WIFI_AUTH_WPA) {
         selected = "WPA_PSK";
-      } else if (current->auth_mode & WIFI_AUTH_WEP_PSK) {
+      } else if (current->auth_mode == WIFI_AUTH_WEP_PSK) {
         selected = "WEP_PSK";
       } else if (current->auth_mode == WIFI_AUTH_OPEN) {
         selected = "OPEN";
@@ -275,7 +275,7 @@ JERRYXX_FUN(net_wifi_connect) {
       jerryxx_string_to_ascii_char_buffer(security, (jerry_char_t*) security_str, len);
       security_str[len] = '\0';
       if (!strcmp((const char *)security_str, "WPA2_WPA_PSK")) {
-        auth = WIFI_AUTH_WPA2;
+        auth = WIFI_AUTH_WPA_WPA2;
       } else if (!strcmp((const char *)security_str, "WPA2_PSK")) {
         auth = WIFI_AUTH_WPA2_PSK;
       } else if (!strcmp((const char *)security_str, "WPA_PSK")) {

@@ -15,6 +15,12 @@
 #define CYW43_AUTH_WEP_PSK 0x00100001
 #define MAX_GPIO_NUM     2
 
+// needed for conversion of scan_results
+#define CYW43_WIFI_AUTH_OPEN 0
+#define CYW43_WIFI_AUTH_WEP_PSK 1 /* BIT 0 */
+#define CYW43_WIFI_AUTH_WPA 2 /* BIT 1 */
+#define CYW43_WIFI_AUTH_WPA2 4 /* BIT 2 */
+
 typedef enum {
   NET_SOCKET_STATE_CLOSED    = 0x00,
   NET_SOCKET_STATE_BIND      = 0x01,
@@ -468,15 +474,15 @@ static int scan_cb(void *env, const cyw43_ev_scan_result_t* result) {
 
   wifi_authentication auth_mode = WIFI_AUTH_UNKNOWN;
 
-  if (result->auth_mode == CYW43_AUTH_WPA2_MIXED_PSK) {
-     auth_mode = WIFI_AUTH_WPA2;
-  } else if (result->auth_mode == CYW43_AUTH_WPA2_AES_PSK) {
+  if ((result->auth_mode & (CYW43_WIFI_AUTH_WPA | CYW43_WIFI_AUTH_WPA2)) == (CYW43_WIFI_AUTH_WPA | CYW43_WIFI_AUTH_WPA2)) {
+     auth_mode = WIFI_AUTH_WPA_WPA2;
+  } else if (result->auth_mode & CYW43_WIFI_AUTH_WPA2) {
      auth_mode = WIFI_AUTH_WPA2_PSK;
-  } else if (result->auth_mode == CYW43_AUTH_WPA_TKIP_PSK) {
+  } else if (result->auth_mode & CYW43_WIFI_AUTH_WPA) {
      auth_mode = WIFI_AUTH_WPA;
-  } else if (result->auth_mode == CYW43_AUTH_WEP_PSK) {
+  } else if (result->auth_mode & CYW43_WIFI_AUTH_WEP_PSK) {
      auth_mode = WIFI_AUTH_WEP_PSK;
-  } else if (result->auth_mode == CYW43_AUTH_OPEN) {
+  } else if (result->auth_mode == CYW43_WIFI_AUTH_OPEN) {
      auth_mode = WIFI_AUTH_OPEN;
   }
 
@@ -590,7 +596,7 @@ void wifi_status(const char** ssid, const uint8_t* bssid[6]) {
 int wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t* bssid, const wifi_authentication auth_mode, const char* password) {
   uint32_t auth = CYW43_AUTH_OPEN;
 
-  if (auth_mode == WIFI_AUTH_WPA2) {
+  if (auth_mode == WIFI_AUTH_WPA_WPA2) {
     auth = CYW43_AUTH_WPA2_MIXED_PSK;
   } else if (auth_mode == WIFI_AUTH_WPA2_PSK) {
     auth = CYW43_AUTH_WPA2_AES_PSK;

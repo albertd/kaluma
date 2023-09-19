@@ -236,7 +236,7 @@ JERRYXX_FUN(net_wifi_scan) {
 }
 
 JERRYXX_FUN(net_wifi_connect) {
-  jerry_value_t result;
+  int result;
   wifi_authentication auth = WIFI_AUTH_OPEN; // Default is OPEN
 
   JERRYXX_CHECK_ARG(0, "connectInfo");
@@ -265,7 +265,7 @@ JERRYXX_FUN(net_wifi_connect) {
   }
   jerry_release_value(bssid);
   if ((ssid_str == NULL) && (bssid_ptr == NULL)) {
-    result = jerry_create_error(JERRY_ERROR_TYPE, (const jerry_char_t *)"no SSID/BSSID error");
+    result = EINVAL; 
   } else {
     jerry_value_t pw = jerryxx_get_property(connect_info, MSTR_WIFI_PASSWORD);
     char *pw_str = NULL;
@@ -300,14 +300,12 @@ JERRYXX_FUN(net_wifi_connect) {
     }
     jerry_release_value(security);
 
-    int connect_ret = wifi_connect(WIFI_CONNECT_TIMEOUT, ssid_str, bssid_ptr, auth, pw_str);
+    result = wifi_connect(WIFI_CONNECT_TIMEOUT, ssid_str, bssid_ptr, auth, pw_str);
 
     free(ssid_str);
     free(pw_str);
 
-    if (connect_ret) {
-      jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
-    } else {
+    if (result >= 0) {
       jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
       jerry_value_t connect_js_cb = jerryxx_get_property(JERRYXX_GET_THIS, MSTR_CONNECT_CB);
       jerry_value_t assoc_js_cb = jerryxx_get_property(JERRYXX_GET_THIS, MSTR_ASSOC_CB);
@@ -334,9 +332,8 @@ JERRYXX_FUN(net_wifi_connect) {
       jerry_release_value(this_val);
       jerry_release_value(connect_js_cb);
     }
-    result = jerry_create_undefined();
   }
-  return result;
+  return jerry_create_number(result);
 }
 
 JERRYXX_FUN(net_wifi_disconnect) {

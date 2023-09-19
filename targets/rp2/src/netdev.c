@@ -598,6 +598,7 @@ void wifi_status(const char** ssid, const uint8_t* bssid[6]) {
 
 int wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t* bssid, const wifi_authentication auth_mode, const char* password) {
   uint32_t auth = CYW43_AUTH_OPEN;
+  int result = EINVAL;
 
   if (auth_mode == WIFI_AUTH_WPA_WPA2) {
     auth = CYW43_AUTH_WPA2_MIXED_PSK;
@@ -610,21 +611,23 @@ int wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t* bssid, 
   } else if (auth_mode == WIFI_AUTH_OPEN) {
     auth = CYW43_AUTH_OPEN;
   }
-  if (ssid == NULL) {
-    __cyw43_drv.ssid[0] = '\0';
-  } else {
-    strncpy(__cyw43_drv.ssid, ssid, sizeof(__cyw43_drv.ssid) - 1);
-  }
-  if (bssid == NULL) {
-    memset(__cyw43_drv.bssid, 0, sizeof(__cyw43_drv.bssid));
-  } else {
-    memcpy(__cyw43_drv.bssid, bssid, sizeof(__cyw43_drv.bssid));
-  }
+  if ((ssid == NULL) ^ (bssid == NULL)) {
+    if (ssid != NULL) {
+      strncpy(__cyw43_drv.ssid, ssid, sizeof(__cyw43_drv.ssid) - 1);
+      if ((result = cyw43_arch_wifi_connect_timeout_ms(__cyw43_drv.ssid, password, auth, seconds * 1000)) == ERR_OK) {
+        cyw43_wifi_get_bssid(&cyw43_state,  __cyw43_drv.bssid);
+      }
+    }
+    else {
+      __cyw43_drv.ssid[0] = '\0';
+      memcpy(__cyw43_drv.bssid, bssid, sizeof(__cyw43_drv.bssid));
+      result = cyw43_arch_wifi_connect_bssid_timeout_ms(__cyw43_drv.ssid, __cyw43_drv.bssid, password, auth, seconds * 1000);
+    }
 
-  int result = cyw43_arch_wifi_connect_bssid_timeout_ms(ssid, bssid, password, auth, seconds * 1000);
-  if (result == ERR_OK) {
-    if (wifi_callbacks.callback_link != NULL) {
-      wifi_callbacks.callback_link(__cyw43_drv.ssid, __cyw43_drv.bssid, true);
+    if (result == ERR_OK) {
+      if (wifi_callbacks.callback_link != NULL) {
+        wifi_callbacks.callback_link(__cyw43_drv.ssid, __cyw43_drv.bssid, true);
+      }
     }
   }
 

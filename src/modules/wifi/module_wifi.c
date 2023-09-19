@@ -117,22 +117,33 @@ static void wifi_report_implementation (const char* ssid, const uint8_t bssid[6]
     jerry_release_value(__ieee80211dev);
     jerry_release_value(global);
   } else {
-    scan_data_t* new_node = (scan_data_t *) malloc(sizeof(scan_data_t));
-    if (new_node != NULL) {
-      new_node->next = NULL;
-      strncpy(new_node->info.ssid, ssid, sizeof(((scan_data_t*)0)->info.ssid)-1);
-      memcpy(new_node->info.bssid, bssid, sizeof(((scan_data_t*)0)->info.bssid));
-      new_node->rssi = strength;
-      new_node->channel = channel;
-      new_node->auth_mode = auth;
-      if (scan_results == NULL) {
-        scan_results = new_node;
-      } else {
-        scan_data_t* current = scan_results;
-        while (current->next != NULL) {
-          current = current->next;
+    scan_data_t** storage = &scan_results;
+
+    // Check if this is a unique node:
+    scan_data_t* current = scan_results;
+    while (current != NULL) {
+      if ((auth == current->auth_mode) && (strcmp(ssid, current->info.ssid) == 0) && (memcmp(bssid, current->info.bssid, 6) == 0)) {
+        current = NULL;
+        storage = NULL;
+      }
+      else {
+        if (current->next == NULL) {
+          storage = &(current->next);
         }
-        current->next = new_node;
+        current = current->next;
+      }
+    }
+
+    if (storage != NULL) { 
+      scan_data_t* new_node = (scan_data_t *) malloc(sizeof(scan_data_t));
+      if (new_node != NULL) {
+        new_node->next = NULL;
+        strncpy(new_node->info.ssid, ssid, sizeof(((scan_data_t*)0)->info.ssid)-1);
+        memcpy(new_node->info.bssid, bssid, sizeof(((scan_data_t*)0)->info.bssid));
+        new_node->rssi = strength;
+        new_node->channel = channel;
+        new_node->auth_mode = auth;
+        *storage = new_node;
       }
     }
   }

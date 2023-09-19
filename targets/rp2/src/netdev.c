@@ -574,6 +574,9 @@ int wifi_scan(const uint8_t seconds) {
       __cyw43_status &= (~CYW43_STATUS_SCANNING);
       cyw43_arch_lwip_end();
     }
+    else {
+      result = 0;
+    }
   }
   return (result);
 }

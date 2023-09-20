@@ -44,6 +44,7 @@
 #include "module_pico_cyw43.h"
 #include <pico/cyw43_arch.h>
 #endif /* PICO_CYW43 */
+#include <port/onewire.h>
 
 /**
  * Delay in milliseconds
@@ -101,6 +102,7 @@ void km_system_init() {
   km_uart_init();
   km_rtc_init();
   km_flash_init();
+  km_onewire_init();
 }
 
 void km_system_cleanup() {
@@ -115,6 +117,7 @@ void km_system_cleanup() {
   km_gpio_cleanup();
   km_rtc_cleanup();
   km_flash_cleanup();
+  km_onewire_cleanup();
 }
 
 uint8_t km_running_script_check() {

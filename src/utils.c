@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 void km_list_init(km_list_t *list) {
   list->head = NULL;
@@ -69,8 +70,29 @@ uint8_t km_hex1(char hex) {
   }
 }
 
-uint8_t km_hex2bin(unsigned char *hex) {
+uint8_t km_hex2bin(const unsigned char *hex) {
   uint8_t hh = km_hex1(hex[0]);
   uint8_t hl = km_hex1(hex[1]);
   return hh << 4 | hl;
 }
+
+void km_bytes_to_string(const uint8_t* input, uint8_t len, char* buffer) {
+  static const char hex_array[] = "0123456789ABCDEF";
+  for (uint8_t index = 0; index < len; index++) {
+    buffer[(index * 3) + 0] = hex_array[input[index] >> 4];
+    buffer[(index * 3) + 1] = hex_array[input[index] & 0x0F];
+    buffer[(index * 3) + 2] = ':';
+  }
+  buffer[(len * 3) - 1 ] = '\0';
+}
+
+uint8_t km_string_to_bytes(const char* text, uint8_t* input, const uint8_t len) {
+  uint8_t index  = 0;
+  uint8_t loaded = 0;
+  while ((text[index] != '\0') && (text[index+1] != '\0') && (loaded < len)) {
+    input[loaded++] = km_hex2bin((const unsigned char*)&text[index]);
+    index += ( ((text[index+2] == '\0') || (isxdigit((uint8_t) text[index+2]))) ? 2 : 3 );
+  }
+  return (loaded);
+}
+

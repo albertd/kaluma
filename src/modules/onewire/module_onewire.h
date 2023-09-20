@@ -19,32 +19,6 @@
  * SOFTWARE.
  */
 
-#ifndef __KM_UTILS_H
-#define __KM_UTILS_H
+#include "jerryscript.h"
 
-#include <stdint.h>
-
-typedef struct km_list_node_s km_list_node_t;
-typedef struct km_list_s km_list_t;
-
-struct km_list_node_s {
-  km_list_node_t *prev;
-  km_list_node_t *next;
-};
-
-struct km_list_s {
-  km_list_node_t *head;
-  km_list_node_t *tail;
-};
-
-void km_list_init(km_list_t *list);
-void km_list_append(km_list_t *list, km_list_node_t *node);
-void km_list_remove(km_list_t *list, km_list_node_t *node);
-
-uint8_t km_hex1(char hex);
-uint8_t km_hex2bin(const unsigned char *hex);
-
-void km_bytes_to_string(const uint8_t* input, uint8_t len, char* buffer);
-uint8_t km_string_to_bytes(const char* text, uint8_t* input, const uint8_t len);
-
-#endif /* __KM_UTILS_H */
+jerry_value_t module_onewire_init();

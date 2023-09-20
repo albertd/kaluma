@@ -30,18 +30,38 @@
 
 static bool onewire_address_from_string(const char* string, onewire_address_t* address) {
   if ((string[0] == '0') && (string[1] == 'x')) {
-    km_string_to_bytes(&(string[2]), address->address, 8);
+    uint8_t swap;
+    km_string_to_bytes(&(string[2]), address->address, 7);
+    swap = address->address[1]; address->address[1] = address->address[6]; address->address[1] = swap;
+    swap = address->address[2]; address->address[2] = address->address[5]; address->address[2] = swap;
+    swap = address->address[3]; address->address[3] = address->address[4]; address->address[3] = swap;
+    address->address[7] = onewire_address_crc(address);
+  
     return (true);
   }
   return (false);
 }
 
 static void onewire_address_to_string(const onewire_address_t* address, char* text) {
+  static char hexArray[] = "0123456789ABCDEF";
   text[0] = '0';
   text[1] = 'x';
-  km_bytes_to_string(address->address, 8, &(text[2]));
-  text[2 + 3] = '-'; 
-  text[2 + (8 * 3)] = '\0'; 
+  text[2] = hexArray[address->address[0] >> 4];
+  text[3] = hexArray[address->address[0] & 0x0F];
+  text[4] = '-';
+  text[5] = hexArray[address->address[6] >> 4];
+  text[6] = hexArray[address->address[6] & 0x0F];
+  text[7] = hexArray[address->address[5] >> 4];
+  text[8] = hexArray[address->address[5] & 0x0F];
+  text[9] = hexArray[address->address[4] >> 4];
+  text[10] = hexArray[address->address[4] & 0x0F];
+  text[11] = hexArray[address->address[3] >> 4];
+  text[12] = hexArray[address->address[3] & 0x0F];
+  text[13] = hexArray[address->address[2] >> 4];
+  text[14] = hexArray[address->address[2] & 0x0F];
+  text[15] = hexArray[address->address[1] >> 4];
+  text[16] = hexArray[address->address[1] & 0x0F];
+  text[17] = '\0';
 }
 
 JERRYXX_FUN(onewire_ctor_fn) {

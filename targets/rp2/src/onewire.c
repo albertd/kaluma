@@ -3,6 +3,7 @@
 #include <pico/time.h>
 #include <hardware/gpio.h>
 #include <port/onewire.h>
+#include <stdio.h>
 
 const uint8_t SkipROMCommand         = 0xCC;
 const uint8_t SearchROMCommand       = 0xF0;
@@ -229,11 +230,15 @@ static int search_rom_find_next(const uint8_t pin) {
   return (result);
 }
 
+uint8_t onewire_address_crc(const onewire_address_t* address) {
+  return (calculate_crc(7, address->address));
+}
+
 uint8_t onewire_create(const uint8_t pin) {
   uint8_t busid = 0;
 
   // See if we have a slot (read bus) left..
-  while ((busid < (sizeof(onewire_bus)/sizeof(onewire_bus_t))) && (onewire_bus[busid].pin != ~0)) {
+  while ((busid < (sizeof(onewire_bus)/sizeof(onewire_bus_t))) && (onewire_bus[busid].pin != 0xFF)) {
     busid++;
   }
 
@@ -283,7 +288,7 @@ uint8_t onewire_scan(const uint8_t busid) {
           *locator = (onewire_link_t*) malloc(sizeof(onewire_link_t));
           (*locator)->next = NULL;
         }
-        memcpy(_search_ROM, (*locator)->address.address, sizeof(_search_ROM));
+        memcpy((*locator)->address.address, _search_ROM, sizeof(_search_ROM));
         locator = &((*locator)->next);
         count++;
       }
@@ -407,13 +412,13 @@ void onewire_power(const uint8_t busid, const uint16_t duration_ms) {
 
 void km_onewire_init() {
   for (uint8_t index = 0; index < (sizeof(onewire_bus)/sizeof(onewire_bus_t)); index++) {
-    onewire_bus[index].pin = ~0;
+    onewire_bus[index].pin = 0xFF;
   }
 }
 
 void km_onewire_cleanup() {
   for (uint8_t index = 0; index < (sizeof(onewire_bus)/sizeof(onewire_bus_t)); index++) {
-    if (onewire_bus[index].pin != ~0) {
+    if (onewire_bus[index].pin != 0xFF) {
       onewire_link_t* destructor = onewire_bus[index].links;
       while (destructor != NULL) {
         onewire_link_t* dispose = destructor;

@@ -5,7 +5,13 @@
 
 typedef struct onewire_address_d {
   uint8_t address[8];
+
+  // The first byte [0] is the family, the last byte [7] is the CRC, 
+  // bytes [1..6] is the unique address..
+
 } onewire_address_t;
+
+uint8_t onewire_address_crc(const onewire_address_t* address);
 
 uint8_t onewire_create(const uint8_t pin);
 void onewire_destroy(const uint8_t busid);

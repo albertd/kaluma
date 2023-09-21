@@ -154,7 +154,38 @@ class WiFi extends EventEmitter {
       if (cb) cb(new SystemError(6)); // ENXIO      
     }
   }
+
+  /**
+   * Set the device in AP mode with the given SSID and password
+   * @param {ssid, password} connectInfo 
+   * @param {*} cb 
+   */
+  enableApMode(connectInfo, cb) {
+    console.log('enableApMode')
+		this._dev.apMode(connectInfo, (err, result) => {
+      console.log('enableApMode',err,result);
+			if (err) {
+				if (cb) cb(new SystemError(this._dev.errno));
+			} else {
+				if (cb) cb(null, result);
+			}
+		});
+	}
+
+
+  /**
+   * Disable the device AP mode.
+   * @param {*} cb 
+   */
+	disableApMode(cb) {
+		this._dev.disableApMode((err, result) => {
+			if (err) {
+				if (cb) cb(new SystemError(this._dev.errno));
+			} else {
+				if (cb) cb(null, result);
+			}
+		});
+	}
 }
 
-var wifi = new WiFi();
-module.exports = wifi;
+exports.WiFi = WiFi;

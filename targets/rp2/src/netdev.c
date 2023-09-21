@@ -676,11 +676,6 @@ int wifi_access_point(const char* ssid, const char* passwd, const ip_address_t* 
         cyw43_arch_lwip_begin();
         __cyw43_status |= CYW43_STATUS_ACCESSPOINT;
         cyw43_arch_lwip_end();
-
-        if (wifi_callbacks.callback_link != NULL) {
-          uint8_t bssid[6];
-          wifi_callbacks.callback_link(ssid, bssid, true);
-        }
       }
     }
     else if ((__cyw43_status & CYW43_STATUS_ACCESSPOINT) != 0) {
@@ -691,11 +686,6 @@ int wifi_access_point(const char* ssid, const char* passwd, const ip_address_t* 
       cyw43_arch_lwip_begin();
       __cyw43_status &= (~CYW43_STATUS_ACCESSPOINT);
       cyw43_arch_lwip_end();
-
-      if (wifi_callbacks.callback_link != NULL) {
-        uint8_t bssid[6];
-        wifi_callbacks.callback_link(ssid, bssid, false);
-      }
     }
   }
 

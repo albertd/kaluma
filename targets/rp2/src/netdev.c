@@ -648,7 +648,7 @@ int wifi_disconnect() {
 int wifi_access_point(const char* ssid, const char* passwd, const ip_address_t* gw, const ip_address_t* mask)  {
   int result = -1;
 
-  if (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_AP) == CYW43_LINK_UP) {
+  if (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_AP) == CYW43_LINK_DOWN) {
     result = ERR_OK;
     if (ssid != NULL) {
       if ((__cyw43_status & CYW43_STATUS_ACCESSPOINT) == 0) {

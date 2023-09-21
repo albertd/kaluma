@@ -161,9 +161,7 @@ class WiFi extends EventEmitter {
    * @param {*} cb 
    */
   enableApMode(connectInfo, cb) {
-    console.log('enableApMode')
 		this._dev.apMode(connectInfo, (err, result) => {
-      console.log('enableApMode',err,result);
 			if (err) {
 				if (cb) cb(new SystemError(this._dev.errno));
 			} else {

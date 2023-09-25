@@ -12,7 +12,7 @@ typedef struct onewire_address_d {
 
 } onewire_address_t;
 
-uint8_t onewire_address_crc(const onewire_address_t* address);
+uint8_t onewire_calculate_crc(const uint8_t length, const uint8_t* buffer);
 
 uint8_t onewire_create(const uint8_t pin);
 void onewire_destroy(const uint8_t busid);

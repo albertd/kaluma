@@ -244,8 +244,8 @@ static int bus_status(const uint8_t busid) {
   return (result);
 }
 
-uint8_t onewire_address_crc(const onewire_address_t* address) {
-  return (calculate_crc(7, address->address));
+uint8_t onewire_calculate_crc(const uint8_t length, const uint8_t* buffer) {
+  return (calculate_crc(length, buffer));
 }
 
 uint8_t onewire_create(const uint8_t pin) {

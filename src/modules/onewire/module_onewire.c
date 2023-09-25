@@ -53,7 +53,7 @@ static uint8_t onewire_address_from_string(const char* string, onewire_address_t
       swap = address->address[1]; address->address[1] = address->address[6]; address->address[1] = swap;
       swap = address->address[2]; address->address[2] = address->address[5]; address->address[2] = swap;
       swap = address->address[3]; address->address[3] = address->address[4]; address->address[3] = swap;
-      address->address[7] = onewire_address_crc(address);
+      address->address[7] = onewire_calculate_crc(7, address->address);
       loaded = 8;
     }
   }
@@ -118,18 +118,16 @@ static int request_temperature(const uint8_t busid, const onewire_address_t* add
   return (result);
 }
 
-/*
 static bool set_config(const uint8_t busid, const onewire_address_t* address, const uint8_t resolution, const uint16_t alarm) {
   uint8_t bytes[3];
   bytes[0] = (alarm >> 8);
   bytes[1] = (alarm & 0xFF);
-  bytes[3] = (resolution - 9) << 5;
+  bytes[2] = (resolution - 9) << 5;
   if (onewire_write(busid, address, WriteScratchPadCommand, sizeof(bytes), bytes) == 0) {
     return (true);
   }
   return (false);
 }
-*/
 
 static void temperature_time_out(const uint8_t index) {
   if ( (active_temp_sensors[index]->callback != JERRY_TYPE_NONE) && (active_temp_sensors[index]->converted < km_gettime()) ) {
@@ -137,10 +135,11 @@ static void temperature_time_out(const uint8_t index) {
     jerry_value_t callback = active_temp_sensors[index]->callback;
     active_temp_sensors[index]->callback = JERRY_TYPE_NONE;
 
-    uint16_t outcome;
-    uint8_t buffer[9];
     uint8_t bus = active_temp_sensors[index]->bus & 0x7F;
     const onewire_address_t* address = ((active_temp_sensors[index]->bus & 0x80) != 0 ? &(active_temp_sensors[index]->address) : NULL);
+    active_temp_sensors[index] = NULL;
+    float outcome = 0;
+    uint8_t buffer[9];
 
     // If this was a parasite temp sensor, first turn of the bus power so we can control it again..
     onewire_power(bus, false);
@@ -149,18 +148,19 @@ static void temperature_time_out(const uint8_t index) {
     int result = onewire_read(bus, address, ReadScratchPadCommand, sizeof(buffer), buffer);
     
     if (result == 0) {
-      outcome = (buffer[0] << 8) | buffer[1];
-      outcome = (outcome + 8) / 16;
-    }
-    else {
-      outcome = 0;
+      if (onewire_calculate_crc(8, buffer) != buffer[8]) {
+        result = ERR_BAD_CRC;
+      }
+      else {
+        outcome = ((buffer[0] | (buffer[1] << 8)) + 8) / 16.0f;
+      }
     }
 
     jerry_value_t this_val = jerry_create_undefined();
+    jerry_value_t temperature = jerry_create_number(outcome);
     jerry_value_t errno = jerry_create_number(result);
-    jerry_value_t temperature = jerry_create_number(outcome / 100.0f);
     jerry_value_t args_p[2] = { temperature, errno};
-    jerry_call_function(callback, this_val, args_p, 2);
+    jerry_call_function(callback, this_val, args_p, (result == 0 ? 1 : 2));
     jerry_release_value(temperature);
     jerry_release_value(errno);
     jerry_release_value(this_val);
@@ -190,13 +190,17 @@ static const jerry_object_native_info_t temperature_handle_info =
 // ------------------------------------------------------------------------
 JERRYXX_FUN(temperature_ctor_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "bus");
-  JERRYXX_CHECK_ARG_OBJECT_OPT(1, "address");
+  JERRYXX_CHECK_ARG_STRING_OPT(1, "address");
+  JERRYXX_CHECK_ARG_NUMBER_OPT(2, "length");
   uint8_t bus = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
   JERRYXX_GET_ARG_STRING_AS_CHAR(1, address);
+  uint8_t bit_length = JERRYXX_GET_ARG_NUMBER_OPT(2, 0xFF);
 
-  // set native handle
+  uint8_t buffer[9];
+  uint8_t bits = 12;
   uint8_t loaded = 0;
   onewire_temperature_t* native = (onewire_temperature_t*) malloc(sizeof(onewire_temperature_t));
+  const onewire_address_t* selected = NULL;
 
   if (address != NULL) {
     loaded = onewire_address_from_string(address, &(native->address));
@@ -204,6 +208,7 @@ JERRYXX_FUN(temperature_ctor_fn) {
 
   if (loaded == 8) {
     native->bus = bus | 0x80;
+    selected = &(native->address); 
   }
   else {
     if (loaded == 0) {
@@ -212,10 +217,22 @@ JERRYXX_FUN(temperature_ctor_fn) {
     native->bus = bus;
   }
 
-  native->delay = conversion_delay(&(native->address), 12);
+  // Find the bits for the temperature:
+  int result = onewire_read(bus, selected, ReadScratchPadCommand, sizeof(buffer), buffer);
+
+  if ( (result == 0) && (onewire_calculate_crc(8, buffer) == buffer[8]) )  {
+    bits = ((buffer[4] >> 5) & 0x03) + 9;
+    if ((bit_length != 0xFF) && (bits != bit_length) && (set_config(bus, selected, bit_length, 0xFFFF))) {
+      bits = bit_length;
+    }
+  }
+  
+  native->delay = conversion_delay(&(native->address), bits);
   native->callback = JERRY_TYPE_NONE;
   jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ONEWIRE_BUS, bus);
+  jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ONEWIRE_BITS, bits);
   jerry_set_object_native_pointer(JERRYXX_GET_THIS, (void**) native, &temperature_handle_info);
+
   return ( jerry_create_undefined());
 }
 

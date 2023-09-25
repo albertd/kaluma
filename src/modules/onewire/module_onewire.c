@@ -39,17 +39,23 @@ typedef struct onewire_temperature_d {
   uint64_t converted;
 } onewire_temperature_t;
 
-onewire_temperature_t* active_temp_sensors[KM_MAX_TEMP_SENSOR_READS];
+onewire_temperature_t* active_temp_sensors[KM_MAX_TEMP_SENSOR_READS] = {};
 
 static uint8_t onewire_address_from_string(const char* string, onewire_address_t* address) {
   uint8_t loaded = 0;
   if ((string[0] == '0') && (string[1] == 'x')) {
     uint8_t swap;
     loaded = km_string_to_bytes(&(string[2]), address->address, 7);
-    swap = address->address[1]; address->address[1] = address->address[6]; address->address[1] = swap;
-    swap = address->address[2]; address->address[2] = address->address[5]; address->address[2] = swap;
-    swap = address->address[3]; address->address[3] = address->address[4]; address->address[3] = swap;
-    address->address[7] = onewire_address_crc(address);
+    if (loaded < 7) {
+      memset(&(address->address[loaded]), 0, sizeof (address->address) - loaded);
+    }
+    else {
+      swap = address->address[1]; address->address[1] = address->address[6]; address->address[1] = swap;
+      swap = address->address[2]; address->address[2] = address->address[5]; address->address[2] = swap;
+      swap = address->address[3]; address->address[3] = address->address[4]; address->address[3] = swap;
+      address->address[7] = onewire_address_crc(address);
+      loaded = 8;
+    }
   }
   return (loaded);
 }
@@ -133,12 +139,14 @@ static void temperature_time_out(const uint8_t index) {
 
     uint16_t outcome;
     uint8_t buffer[9];
+    uint8_t bus = active_temp_sensors[index]->bus & 0x7F;
+    const onewire_address_t* address = ((active_temp_sensors[index]->bus & 0x80) != 0 ? &(active_temp_sensors[index]->address) : NULL);
 
     // If this was a parasite temp sensor, first turn of the bus power so we can control it again..
-    onewire_power(active_temp_sensors[index]->bus, false);
+    onewire_power(bus, false);
 
     // Allright, now, in due time we get a callback to read the temperature..
-    int result = onewire_read(active_temp_sensors[index]->bus, &(active_temp_sensors[index]->address), ReadScratchPadCommand, sizeof(buffer), buffer);
+    int result = onewire_read(bus, address, ReadScratchPadCommand, sizeof(buffer), buffer);
     
     if (result == 0) {
       outcome = (buffer[0] << 8) | buffer[1];
@@ -193,12 +201,14 @@ JERRYXX_FUN(temperature_ctor_fn) {
     loaded = onewire_address_from_string(address, &(native->address));
   }
 
-  if (loaded < sizeof(native->address)) {
+  if (loaded == 8) {
+    native->bus = bus | 0x80;
+  }
+  else {
     if (loaded == 0) {
-      loaded = 1;
       native->address.address[0] = FAMILY_DS18B20;
     }
-    memset(&(native->address.address[loaded]), 0, sizeof(native->address) - loaded);
+    native->bus = bus;
   }
 
   native->delay = conversion_delay(&(native->address), 12);
@@ -232,7 +242,7 @@ JERRYXX_FUN(temperature_read_fn) {
     else {
       active_temp_sensors[index] = native;
 
-      result = request_temperature(native->bus, &(native->address));
+      result = request_temperature((native->bus & 0x7F), ((native->bus & 0x80) != 0 ? &(native->address) : NULL));
 
       if (result != 0) {
         return (jerry_create_error(JERRY_ERROR_COMMON, (const jerry_char_t *) "Temperature could not be read."));

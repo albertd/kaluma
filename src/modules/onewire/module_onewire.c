@@ -150,6 +150,7 @@ static void temperature_time_out(const uint8_t index) {
     
     if (result == 0) {
       outcome = (buffer[0] << 8) | buffer[1];
+      outcome = (outcome + 8) / 16;
     }
     else {
       outcome = 0;
@@ -157,7 +158,7 @@ static void temperature_time_out(const uint8_t index) {
 
     jerry_value_t this_val = jerry_create_undefined();
     jerry_value_t errno = jerry_create_number(result);
-    jerry_value_t temperature = jerry_create_number(outcome);
+    jerry_value_t temperature = jerry_create_number(outcome / 100.0f);
     jerry_value_t args_p[2] = { temperature, errno};
     jerry_call_function(callback, this_val, args_p, 2);
     jerry_release_value(temperature);

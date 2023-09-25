@@ -76,7 +76,7 @@ set(SOURCES
   ${TARGET_SRC_DIR}/rtc.c
   ${TARGET_SRC_DIR}/wdt.c
   ${TARGET_SRC_DIR}/main.c
-  ${TARGET_SRC_DIR}/onewire.c
+  ${TARGET_SRC_DIR}/optional.c
   ${BOARD_DIR}/board.c)
 
 include_directories(${TARGET_INC_DIR} ${BOARD_DIR})

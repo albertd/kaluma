@@ -19,6 +19,22 @@
  * SOFTWARE.
  */
 
+#pragma once
+
 #include "jerryscript.h"
 
+typedef enum family_code_d {
+    FAMILY_DS18S20  = 0x10,
+    FAMILY_DS18B20  = 0x28,
+    FAMILY_DS1822   = 0x22,
+    FAMILY_MAX31826 = 0x3B
+} family_code_t;
+
+static const uint8_t ConvertTempCommand = 0x44;
+static const uint8_t ReadScratchPadCommand = 0xBE;
+static const uint8_t WriteScratchPadCommand = 0x4E;
+
 jerry_value_t module_onewire_init();
+void module_onewire_process();
+
+#define KM_MAX_TEMP_SENSOR_READS  6 

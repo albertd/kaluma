@@ -10,19 +10,19 @@ const uint8_t SearchROMCommand       = 0xF0;
 const uint8_t ReadPowerSupplyCommand = 0xB4;
 const uint8_t MatchROMCommand        = 0x55;
 
-const int ERR_RESET_FAILED    = -1;
-const int ERR_DATA_READ_ERROR = -2;
-const int ERR_BAD_CRC         = -3;
-const int ERR_PARASITE_POWER  = -4;
-const int ERR_INVALIDBUS      = -5;
+const uint8_t ParasitePowerTested    = 0x80;
+const uint8_t ParasitePowerRequired  = 0x40;
+const uint8_t ParasitePowered        = 0x10;
 
 typedef struct onewire_link_d {
   onewire_address_t address;
+  uint8_t flags;
   struct onewire_link_d* next;
 } onewire_link_t;
 
 typedef struct onewire_bus_d {
   uint8_t pin;
+  uint8_t flags;
   onewire_link_t* links;
 } onewire_bus_t;
 
@@ -112,7 +112,6 @@ static void onewire_byte_out(const uint8_t pin, const uint8_t data) {
     send = send >>  1;
   }
 }
-
 
 static bool onewire_bit_in(const uint8_t pin) {
   bool answer;
@@ -230,6 +229,21 @@ static int search_rom_find_next(const uint8_t pin) {
   return (result);
 }
 
+static int bus_status(const uint8_t busid) {
+  int result;
+
+  if ( (busid >= (sizeof(onewire_bus)/sizeof(onewire_bus_t))) || (onewire_bus[busid].pin == ~0) ) {
+    result = ERR_INVALIDBUS;
+  }
+  else if ((onewire_bus[busid].flags & ParasitePowered) != 0) {
+    result = ERR_BUS_IS_POWERED;
+  }
+  else {
+    result = 0;
+  }
+  return (result);
+}
+
 uint8_t onewire_address_crc(const onewire_address_t* address) {
   return (calculate_crc(7, address->address));
 }
@@ -246,8 +260,9 @@ uint8_t onewire_create(const uint8_t pin) {
     busid = ~0;
   }
   else {
-    onewire_bus[busid].links = NULL;
-    onewire_bus[busid].pin = pin;
+    onewire_bus[busid].links    = NULL;
+    onewire_bus[busid].pin      = pin;
+    onewire_bus[busid].flags    = 0x00;
 
     gpio_init(onewire_bus[busid].pin);
   }
@@ -270,10 +285,11 @@ void onewire_destroy(const uint8_t busid) {
   }
 }
 
-uint8_t onewire_scan(const uint8_t busid) {
-  uint8_t count = 0;
+int onewire_scan(const uint8_t busid, uint8_t* report) {
+  int result = bus_status(busid);
 
-  if ( (busid < (sizeof(onewire_bus)/sizeof(onewire_bus_t))) && (onewire_bus[busid].pin != ~0) ) {
+  if ( result == 0 ) {
+    uint8_t count = 0;
     uint8_t pin = onewire_bus[busid].pin;
     onewire_link_t** locator = &(onewire_bus[busid].links);
 
@@ -289,6 +305,8 @@ uint8_t onewire_scan(const uint8_t busid) {
           (*locator)->next = NULL;
         }
         memcpy((*locator)->address.address, _search_ROM, sizeof(_search_ROM));
+        (*locator)->flags = 0x00;
+
         locator = &((*locator)->next);
         count++;
       }
@@ -302,9 +320,10 @@ uint8_t onewire_scan(const uint8_t busid) {
       free(dispose);
     }
     *locator = NULL;
+    *report = count;
   }
 
-  return (count);
+  return (result);
 }
 
 const onewire_address_t* onewire_link(const uint8_t busid, const uint8_t index) {
@@ -324,12 +343,9 @@ const onewire_address_t* onewire_link(const uint8_t busid, const uint8_t index) 
 }
 
 int onewire_read(const uint8_t busid, const onewire_address_t* address, const uint8_t command, const uint8_t length, uint8_t* buffer) {
-  int result;
+  int result = bus_status(busid);
 
-  if ( (busid >= (sizeof(onewire_bus)/sizeof(onewire_bus_t))) || (onewire_bus[busid].pin == ~0) ) {
-    result = ERR_INVALIDBUS;
-  }
-  else {
+  if (result == 0) {
     uint8_t pin = onewire_bus[busid].pin;
 
     if (address == NULL) {
@@ -351,12 +367,9 @@ int onewire_read(const uint8_t busid, const onewire_address_t* address, const ui
 }
 
 int onewire_write(const uint8_t busid, const onewire_address_t* address, const uint8_t command, const uint8_t length, const uint8_t* buffer) {
-  int result;
+  int result = bus_status(busid);
 
-  if ( (busid >= (sizeof(onewire_bus)/sizeof(onewire_bus_t))) || (onewire_bus[busid].pin == ~0) ) {
-    result = ERR_INVALIDBUS;
-  }
-  else {
+  if (result == 0) {
     uint8_t pin = onewire_bus[busid].pin;
 
     if (address == NULL) {
@@ -377,42 +390,78 @@ int onewire_write(const uint8_t busid, const onewire_address_t* address, const u
   return (result);
 }
 
-bool onewire_parasite(const uint8_t busid, const onewire_address_t* address) {
-  bool result = false;
+int onewire_parasite(const uint8_t busid, const onewire_address_t* address) {
+  int result = bus_status(busid);
 
-  if ( (busid < (sizeof(onewire_bus)/sizeof(onewire_bus_t))) && (onewire_bus[busid].pin != ~0) ) {
+  if (result == 0) {
     uint8_t pin = onewire_bus[busid].pin;
+    onewire_link_t* entry = NULL;
     int error;
 
     if (address == NULL) {
-      error = skip_rom(pin);
+      if ((onewire_bus[busid].flags & ParasitePowerTested) == 0) {
+        error = skip_rom(pin);
+      }
+      else {
+        error = -1;
+        result = ((onewire_bus[busid].flags & ParasitePowerRequired) ? ERR_PARASITE_POWER : 0);
+      }
     } else {
-      error = match_rom(pin, address);
+      entry = onewire_bus[busid].links;
+      while ((entry != NULL) && (memcmp(entry->address.address, address->address, sizeof(onewire_address_t)) != 0)) {
+        entry = entry->next;
+      }
+      if ((entry == NULL) || ((entry->flags & ParasitePowerTested) == 0)) {
+        error = match_rom(pin, address);
+      }
+      else {
+        error = -1;
+        result = ((entry->flags & ParasitePowerRequired) ? ERR_PARASITE_POWER : 0);
+      }
     }
 
     if (error == 0) {
       onewire_byte_out(pin, ReadPowerSupplyCommand);
 
-      result = onewire_bit_in(pin);
+      bool outcome = onewire_bit_in(pin);
+
+      if (address == NULL) {
+        onewire_bus[busid].flags |= (ParasitePowerTested | (outcome ? ParasitePowerRequired : 0));
+      }
+      else if (entry != NULL) {
+        entry->flags |= (ParasitePowerTested | (outcome ? ParasitePowerRequired : 0));
+      }
+      result = (outcome ? ERR_PARASITE_POWER : 0);
     }
   }
 
   return (result);
 }
 
-void onewire_power(const uint8_t busid, const uint16_t duration_ms) {
-  if ( (busid < (sizeof(onewire_bus)/sizeof(onewire_bus_t))) && (onewire_bus[busid].pin != ~0) ) {
+int onewire_power(const uint8_t busid, const bool powered) {
+  int result = bus_status(busid);
+
+  if ((result == ERR_BUS_IS_POWERED) && (powered == false)) {
+    uint8_t pin = onewire_bus[busid].pin;
+    gpio_set_dir(pin, GPIO_IN);
+    onewire_bus[busid].flags &= (~ParasitePowered);
+    result = 0;
+  }
+  else if ((result == 0) && (powered == true)) {
+    onewire_bus[busid].flags |= ParasitePowered;
     uint8_t pin = onewire_bus[busid].pin;
     gpio_set_dir(pin, GPIO_OUT);
     gpio_put(pin, true);
-    sleep_ms(duration_ms);
-    gpio_set_dir(pin, GPIO_IN);
   }
+  else {
+    result = ERR_INVALID_REQUEST;
+  }
+  return (result);
 }
 
 void km_onewire_init() {
   for (uint8_t index = 0; index < (sizeof(onewire_bus)/sizeof(onewire_bus_t)); index++) {
-    onewire_bus[index].pin = 0xFF;
+    onewire_bus[index].pin      = 0xFF;
   }
 }
 

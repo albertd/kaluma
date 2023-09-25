@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <kaluma_modules.h>
 
 #include "gpio.h"
 #include "system.h"
@@ -114,6 +115,9 @@ void km_io_run(bool infinite) {
     km_io_idle_run();
     km_io_handle_closing();
     km_custom_infinite_loop();
+    #if defined(MODULE_ONEWIRE_SELECTED)
+    module_onewire_process();
+    #endif
 
     // quite if there no IO handles
     if (!infinite) {

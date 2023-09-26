@@ -129,7 +129,7 @@ static bool set_config(const uint8_t busid, const onewire_address_t* address, co
   return (false);
 }
 
-static void temperature_time_out(const uint8_t index) {
+static void temperature_loading(const uint8_t index) {
   if ( (active_temp_sensors[index]->callback != JERRY_TYPE_NONE) && (active_temp_sensors[index]->converted < km_gettime()) ) {
     // This is an expired callback. Fire it..
     jerry_value_t callback = active_temp_sensors[index]->callback;
@@ -159,8 +159,8 @@ static void temperature_time_out(const uint8_t index) {
     jerry_value_t this_val = jerry_create_undefined();
     jerry_value_t temperature = jerry_create_number(outcome);
     jerry_value_t errno = jerry_create_number(result);
-    jerry_value_t args_p[2] = { temperature, errno};
-    jerry_call_function(callback, this_val, args_p, (result == 0 ? 1 : 2));
+    jerry_value_t args_p[2] = { errno, temperature };
+    jerry_call_function(callback, this_val, args_p, 2);
     jerry_release_value(temperature);
     jerry_release_value(errno);
     jerry_release_value(this_val);
@@ -397,7 +397,7 @@ jerry_value_t module_onewire_init() {
 void module_onewire_process() {
   for (uint8_t index = 0; index < (sizeof(active_temp_sensors) / sizeof(jerry_value_t)); index++) {
     if (active_temp_sensors[index] != NULL) { 
-      temperature_time_out(index);      
+      temperature_loading(index);      
     }
   } 
 }

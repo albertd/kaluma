@@ -7,6 +7,11 @@
 extern "C" {
 #endif
 
+enum address_type {
+  ADDRESS_IPV4,
+  ADDRESS_IPV6
+};
+
 typedef struct {
   uint32_t addr;
 } ipv4_address_t;

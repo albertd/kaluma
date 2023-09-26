@@ -153,13 +153,26 @@ static void wifi_link_implementation (const char* ssid, const uint8_t bssid[6], 
   jerry_value_t callback = 0;
   jerry_value_t global = jerry_get_global_object();
   jerry_value_t __ieee80211dev = jerryxx_get_property(global, MSTR___IEEE80211dev);
+
+  char buffer[19];
+  bytes_to_string(bssid, 6, buffer);
+
   if (connected) {
+    char ipv4address[16];
+    ip_address_t address;
+    wifi_address(ADDRESS_IPV4, &address);
+    ipv4_to_string_address(&address, sizeof(ipv4address), ipv4address);
     callback = jerryxx_get_property(__ieee80211dev, MSTR_CONNECT_CB);
+    jerryxx_set_property_string(__ieee80211dev, MSTR_SSID, (char*) ssid);
+    jerryxx_set_property_string(__ieee80211dev, MSTR_BSSID, buffer);
+    jerryxx_set_property_string(__ieee80211dev, MSTR_IPV4, ipv4address);
   } else {
     callback = jerryxx_get_property(__ieee80211dev, MSTR_DISCONNECT_CB);
+    jerryxx_delete_property(__ieee80211dev, MSTR_SSID);
+    jerryxx_delete_property(__ieee80211dev, MSTR_BSSID);
+    jerryxx_delete_property(__ieee80211dev, MSTR_IPV4);
   }
   if (jerry_value_is_function(callback)) {
-      char buffer[19];
       jerry_value_t info = jerry_create_object();
 
       jerryxx_set_property_string(info, MSTR_SSID, (char*) ssid);
@@ -188,6 +201,10 @@ JERRYXX_FUN(net_wifi_reset) {
     jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO,
                                 0);
   }
+
+  jerryxx_delete_property(JERRYXX_GET_THIS, MSTR_SSID);
+  jerryxx_delete_property(JERRYXX_GET_THIS, MSTR_BSSID);
+
   if (JERRYXX_HAS_ARG(0)) {
     jerry_value_t callback = JERRYXX_GET_ARG(0);
     jerry_value_t reset_js_cb = jerry_acquire_value(callback);
@@ -492,6 +509,7 @@ JERRYXX_FUN(net_wifi_ap_mode) {
       result = jerry_create_undefined();
     }
     else {
+      jerryxx_set_property_string(JERRYXX_GET_THIS, MSTR_SSID, str_buffer);
       result = jerry_create_undefined();
 
       if (JERRYXX_HAS_ARG(1)) {

@@ -12,6 +12,9 @@
 
 #include <dhcpserver.h>
 
+// TODO: This is depending on wheter the second core in the PICO does the POLL handling or if there is just 1 CORE doing it all (KALUMA)
+#define SINGLE_THREADED 1
+
 #define CYW43_AUTH_WEP_PSK 0x00100001
 #define MAX_GPIO_NUM     2
 
@@ -151,8 +154,6 @@ static err_t connect_cb(void *arg, struct tcp_pcb *tpcb, err_t err) {
   assert (info != NULL);
 
   if ( (err == ERR_OK) && (info != NULL) ) {
-    uint8_t index = determine_index(info);
-
     cyw43_arch_lwip_begin();
 
     if (info->state != NET_SOCKET_STATE_CLOSED) {
@@ -161,7 +162,7 @@ static err_t connect_cb(void *arg, struct tcp_pcb *tpcb, err_t err) {
     cyw43_arch_lwip_end();
 
     if(socket_callbacks.callback_connected != NULL) {
-      socket_callbacks.callback_connected(index);
+      socket_callbacks.callback_connected(determine_index(info));
     }
   }
 
@@ -197,7 +198,6 @@ static void dns_found_cb(const char* name, const ip_addr_t* ipaddr, void* callba
   } else {
     IP4_ADDR((ip_addr_t *)callback_arg, 0, 0, 0, 0); // IP is not found.
   }
-
   cyw43_arch_lwip_begin();
   __cyw43_status &= (~CYW43_STATUS_DNS_DONE);
   cyw43_arch_lwip_end();
@@ -284,23 +284,31 @@ int socket_resolve(const uint8_t timeout, const char* name, ip_address_t* addres
                                          LWIP_DNS_ADDRTYPE_IPV4);
 
     if (result == ERR_INPROGRESS) {
+      #if SINGLE_THREADED
+
+      absolute_time_t endtime = make_timeout_time_ms(timeout * 1000);
+
+      while ( ((__cyw43_status & CYW43_STATUS_DNS_DONE) != 0) && (endtime > get_absolute_time()) ) {
+        wifi_process();
+      }
+
+      #else
 
       uint16_t slots = timeout * 5; // 3 Sec
-
       while ((slots != 0) && ((__cyw43_status & CYW43_STATUS_DNS_DONE) != 0)) {
-        #if PICO_CYW43_ARCH_POLL
-        cyw43_arch_wait_for_work_until(make_timeout_time_ms(200));
-        #else
         sleep_ms(200);
-        #endif
-
         slots--;
       }
 
-      if (ip4_addr_get_u32(&ipv4) != 0) {
+      #endif
+
+      if ((__cyw43_status & CYW43_STATUS_DNS_DONE) == 0) {
         address->ipv4.addr = ipv4.addr;
         SET_IPV4(*address);
         result = ERR_OK;
+      }
+      else {
+        result = ERR_TIMEOUT;
       }
     }
 
@@ -643,6 +651,15 @@ int wifi_disconnect() {
     __cyw43_drv.ssid[0] = '\0';
   }
   return (result);
+}
+
+int wifi_address(const enum address_type which, ip_address_t* address) {
+  if (which == ADDRESS_IPV4) {
+    const ip_addr_t* laddr = netif_ip_addr4(&(cyw43_state.netif[CYW43_ITF_STA]));
+    address->ipv4.addr = laddr->addr;
+    return (0);
+  }
+  return(ERR_ARG);
 }
 
 int wifi_access_point(const char* ssid, const char* passwd, const ip_address_t* gw, const ip_address_t* mask)  {

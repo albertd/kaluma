@@ -27,6 +27,7 @@ int  wifi_scan(const uint8_t seconds);
 bool wifi_is_scanning();
 int  wifi_connect(const uint8_t seconds, const char* ssid, const uint8_t bssid[6], const wifi_authentication auth_mode, const char* password);
 int  wifi_disconnect();
+int  wifi_address(const enum address_type which, ip_address_t* address);
 
 typedef void (*wifi_report)(const char* ssid, const uint8_t bssid[6], const wifi_authentication auth, const uint8_t channel, const int strength);
 typedef void (*wifi_link)(const char* ssid, const uint8_t bssid[6], const bool connected);

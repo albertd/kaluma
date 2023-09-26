@@ -166,6 +166,7 @@
 #define MSTR_SECURITY "security"
 #define MSTR_RSSI "rssi"
 #define MSTR_CHANNEL "channel"
+#define MSTR_IPV4 "ipv4"
 
 #define MSTR_HEAP___STDIN "__stdin"
 #define MSTR_HEAP___STDOUT "__stdout"

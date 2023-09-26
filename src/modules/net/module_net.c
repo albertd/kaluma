@@ -41,6 +41,7 @@ socket_data_t socket_map[KALUMA_MAX_SOCKETS];
 
 void socket_connected_implementation (const uint8_t fd) {
   if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS)) {
+    jerryxx_set_property_string(socket_map[fd].obj, MSTR_STATE, "CONNECTED");
     jerry_value_t callback = jerryxx_get_property(socket_map[fd].obj, MSTR_CONNECT_CB);
     if (jerry_value_is_function(callback)) {
         jerry_value_t this_val = jerry_create_undefined();
@@ -67,7 +68,7 @@ void socket_received_implementation (const uint8_t fd, const uint16_t length, co
 }
 
 void socket_accepted_implementation (const uint8_t fd, const uint8_t accepted) {
-  if ((fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) && (accepted < KALUMA_MAX_SOCKETS)) {
+  if ( (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) && (accepted < KALUMA_MAX_SOCKETS) ) {
     socket_map[accepted].fd = accepted;
     socket_map[accepted].obj = jerry_create_object();
     jerryxx_set_property_number(socket_map[accepted].obj, MSTR_FD, accepted);
@@ -140,10 +141,6 @@ JERRYXX_FUN(net_network_socket) {
       jerryxx_set_property_number(socket_map[fd].obj, MSTR_FD, fd);
       jerryxx_set_property_string(socket_map[fd].obj, MSTR_PTCL, socket_type);
       jerryxx_set_property_string(socket_map[fd].obj, MSTR_STATE, "INITIALIZED");
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_LADDR, "0.0.0.0");
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_LPORT, 0);
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, "0.0.0.0");
-      jerryxx_set_property_number(socket_map[fd].obj, MSTR_RPORT, 0);
     }
   } 
   return jerry_create_number(fd);
@@ -166,7 +163,7 @@ JERRYXX_FUN(net_network_connect) {
 
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
 
     JERRYXX_GET_ARG_STRING_AS_CHAR(1, addr_str);
     uint16_t port = JERRYXX_GET_ARG_NUMBER(2);
@@ -176,15 +173,23 @@ JERRYXX_FUN(net_network_connect) {
       jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }
     else {
-      jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, addr_str);
+      {
+        char ipv4address[16];
+        ipv4_to_string_address(&remote, sizeof(ipv4address), ipv4address);
+        jerryxx_set_property_string(socket_map[fd].obj, MSTR_RADDR, ipv4address);
+      }
+      
       jerryxx_set_property_number(socket_map[fd].obj, MSTR_RPORT, port);
 
-      if ( (socket_bind    (fd, &remote, port) < 0) ||
-           (socket_connect (fd)                < 0) ) {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
+      if (socket_bind(fd, &remote, port) < 0) {
+        jerryxx_set_property_number(socket_map[fd].obj, MSTR_ERRNO, -2);
+      }
+      else if (socket_connect(fd) < 0) {
+        jerryxx_set_property_number(socket_map[fd].obj, MSTR_ERRNO, -3);
       }
       else {
-        jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, 0);
+        jerryxx_set_property_number(socket_map[fd].obj, MSTR_ERRNO, 0);
+        jerryxx_set_property_string(socket_map[fd].obj, MSTR_NET_RHOST, addr_str);
 
         if (JERRYXX_HAS_ARG(3)) {
           jerry_value_t callback = jerry_acquire_value(JERRYXX_GET_ARG(3));
@@ -212,7 +217,7 @@ JERRYXX_FUN(net_network_write) {
 
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
 
     jerry_size_t len    = jerry_get_string_size(args_p[1]);
     uint8_t*     buffer = calloc(1, len + 1);
@@ -248,7 +253,7 @@ JERRYXX_FUN(net_network_close) {
 
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
 
     if (socket_close(fd) < 0) {
       jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
@@ -282,7 +287,7 @@ JERRYXX_FUN(net_network_shutdown) {
   JERRYXX_CHECK_ARG_FUNCTION_OPT(2, "callback");
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
     //int8_t how = JERRYXX_GET_ARG_NUMBER(1);
 
     //if (socket_shutdown(fd, how) < 0) {
@@ -319,7 +324,7 @@ JERRYXX_FUN(net_network_bind) {
 
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
 
     JERRYXX_GET_ARG_STRING_AS_CHAR(1, addr_str);
     uint16_t port = JERRYXX_GET_ARG_NUMBER(2);
@@ -364,7 +369,7 @@ JERRYXX_FUN(net_network_listen) {
 
   int8_t fd = JERRYXX_GET_ARG_NUMBER(0);
 
-  if ( (fd < 0) || (fd >= KALUMA_MAX_SOCKETS) || (socket_map[fd].fd >= KALUMA_MAX_SOCKETS) ) {
+  if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
     if (socket_listen (fd) < 0) {
       jerryxx_set_property_number(JERRYXX_GET_THIS, MSTR_ERRNO, -1);
     }

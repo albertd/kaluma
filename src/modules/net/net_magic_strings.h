@@ -27,6 +27,7 @@
 
 
 #define MSTR_NET_MODULE "net"
+#define MSTR_NET_RHOST "remote"
 
 
 #endif /* __NET_MAGIC_STRINGS_H */

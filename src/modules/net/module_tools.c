@@ -138,3 +138,21 @@ uint8_t string_to_ip_address(const char* text, ip_address_t* address)
   }
   return 0;
 }
+
+uint8_t ipv4_to_string_address(const ip_address_t* address, const uint8_t length, char* text)
+{
+  if ( (text != NULL) && (address != NULL) && (length >= 16)) {
+    itoa(((address->ipv4.addr      ) & 0xFF), text,   10);
+    uint8_t index = strlen(text);
+    text[index++] = '.';
+    itoa(((address->ipv4.addr >>  8) & 0xFF), &(text[index]), 10);
+    index += strlen(&(text[index]));
+    text[index++] = '.';   
+    itoa(((address->ipv4.addr >> 16) & 0xFF), &(text[index]), 10);
+    index += strlen(&(text[index]));
+    text[index++] = '.';   
+    itoa(((address->ipv4.addr >> 24) & 0xFF), &(text[index]), 10);
+    return (index + strlen(&(text[index])));
+  }
+  return 0;
+}

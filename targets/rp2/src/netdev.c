@@ -421,7 +421,7 @@ int socket_send(const uint8_t fd, const uint16_t length, const uint8_t* buffer) 
 
   cyw43_arch_lwip_begin();
 
-  if (((__socket_info[fd].state & socket_type_mask) & NET_SOCKET_STATE_CONNECTED) != 0) {
+  if ((__socket_info[fd].state & NET_SOCKET_STATE_CONNECTED) != 0) {
     if ((__socket_info[fd].state & socket_type_mask) == NET_SOCKET_STREAM) {
       err = tcp_write(__socket_info[fd].tcp_pcb, buffer, length, TCP_WRITE_FLAG_COPY);
       if (err == ERR_OK) {

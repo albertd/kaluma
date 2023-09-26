@@ -219,8 +219,8 @@ JERRYXX_FUN(net_network_write) {
 
   if ( (fd >= 0) && (fd < KALUMA_MAX_SOCKETS) && (socket_map[fd].fd < KALUMA_MAX_SOCKETS) ) {
 
-    jerry_size_t len    = jerry_get_string_size(args_p[1]);
-    uint8_t*     buffer = calloc(1, len + 1);
+    uint16_t len    = (uint16_t) jerry_get_string_size(args_p[1]);
+    uint8_t* buffer = calloc(1, len + 1);
     jerry_string_to_char_buffer(args_p[1], (jerry_char_t *)buffer, len);
 
     if (socket_send (fd, len, buffer) < 0) {

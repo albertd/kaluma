@@ -343,6 +343,106 @@ JERRYXX_FUN(onewire_scan_fn) {
   return (result);
 }
 
+JERRYXX_FUN(onewire_read_fn) {
+  jerry_value_t result = JERRY_TYPE_NONE;
+  JERRYXX_CHECK_ARG_NUMBER(0, "command");
+  JERRYXX_CHECK_ARG_NUMBER(1, "length");
+  JERRYXX_CHECK_ARG_STRING_OPT(2, "address");
+
+  uint8_t bus = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ONEWIRE_BUS, KM_MAX_ONEWIRE_BUS);
+  if (bus >= KM_MAX_ONEWIRE_BUS) {
+    result = jerry_create_error(JERRY_ERROR_COMMON, (const jerry_char_t *) "Invalid OneWire bus.");
+  }
+  else {
+    const onewire_address_t storage;
+    const onewire_address_t* selected = NULL;
+
+    {
+      JERRYXX_GET_ARG_STRING_AS_CHAR(2, address);
+      if ( (address != NULL) && (onewire_address_from_string(address, &storage) == 8) ) {
+        selected = &storage;
+      }
+    }
+
+    uint8_t command = JERRYXX_GET_ARG_NUMBER(0);  
+    uint8_t len = JERRYXX_GET_ARG_NUMBER(1);
+    uint8_t buffer[len];
+
+    // We have outr data, find an optional address and send it..
+    int outcome = onewire_read(bus, selected, command, len, buffer);
+
+    if (outcome != 0) {
+      result = jerry_create_number(outcome);
+    }
+    else {
+      result = jerry_create_array(len);
+
+      for (uint8_t index = 0; index < len; index++) {
+        jerry_value_t number = jerry_create_number(buffer[index]);
+        jerry_value_t ingested = jerry_set_property_by_index(result, index, number);
+        jerry_release_value(number);
+        jerry_release_value(ingested);
+      }
+    }
+  }
+
+  return (result);
+}
+
+JERRYXX_FUN(onewire_write_fn) {
+  jerry_value_t result = JERRY_TYPE_NONE;
+  JERRYXX_CHECK_ARG_NUMBER(0, "command");
+  JERRYXX_CHECK_ARG_ARRAY(1, "data");
+  JERRYXX_CHECK_ARG_STRING_OPT(2, "address");
+
+  uint8_t bus = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ONEWIRE_BUS, KM_MAX_ONEWIRE_BUS);
+  if (bus >= KM_MAX_ONEWIRE_BUS) {
+    result = jerry_create_error(JERRY_ERROR_COMMON, (const jerry_char_t *) "Invalid OneWire bus.");
+  }
+  else {
+    uint8_t command = JERRYXX_GET_ARG_NUMBER(0);  
+    jerry_value_t data = JERRYXX_GET_ARG(1);
+    uint8_t len = (uint8_t) jerry_get_array_length(data);
+    uint8_t buffer[len];
+    uint8_t index = 0;
+
+    while ( (index < len) && (result == JERRY_TYPE_NONE) ) {
+      double byte;
+      jerry_value_t element = jerry_get_property_by_index(data, index);
+      if ( (!jerry_value_is_number(element)) || ((byte = jerry_get_number_value(element)) < 0) || (byte > 0xFF) ) {
+        result = jerry_create_error(JERRY_ERROR_TYPE, (const jerry_char_t *)"Data (bytes) should be numbers between 0 and 255.");
+      }
+      else {
+        buffer[index] = (uint8_t) byte;
+        index++;
+      }
+    }
+   
+    if (result == JERRY_TYPE_NONE) {
+      const onewire_address_t storage;
+      const onewire_address_t* selected = NULL;
+
+      {
+        JERRYXX_GET_ARG_STRING_AS_CHAR(2, address);
+        if ( (address != NULL) && (onewire_address_from_string(address, &storage) == 8) ) {
+          selected = &storage;
+        }
+      }
+
+      // We have outr data, find an optional address and send it..
+      int outcome = onewire_write(bus, selected, command, len, buffer);
+      if (outcome == 0) {
+        result = jerry_create_undefined();
+      }
+      else {
+        result = jerry_create_number(outcome);
+      }
+    }
+  }
+
+  return (result);
+}
+
 JERRYXX_FUN(onewire_parasite_fn) {
   jerry_value_t result;
   uint8_t bus = jerryxx_get_property_number(JERRYXX_GET_THIS, MSTR_ONEWIRE_BUS, KM_MAX_ONEWIRE_BUS);
@@ -374,6 +474,8 @@ jerry_value_t module_onewire_init() {
   jerry_value_t prototype = jerry_create_object();
   jerryxx_set_property(onewire_ctor, "prototype", prototype);
   jerryxx_set_property_function(prototype, MSTR_ONEWIRE_SCAN, onewire_scan_fn);
+  jerryxx_set_property_function(prototype, MSTR_ONEWIRE_READ, onewire_read_fn);
+  jerryxx_set_property_function(prototype, MSTR_ONEWIRE_WRITE, onewire_write_fn);
   jerryxx_set_property_function(prototype, MSTR_ONEWIRE_PARASITE, onewire_parasite_fn);
   jerry_release_value(prototype);
 

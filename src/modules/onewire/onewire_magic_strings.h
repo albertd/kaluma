@@ -3,6 +3,8 @@
 #define MSTR_ONEWIRE_ONEWIRE  "Bus"
 #define MSTR_ONEWIRE_PIN      "pin"
 #define MSTR_ONEWIRE_BUS      "bus"
+#define MSTR_ONEWIRE_WRITE    "write"
+#define MSTR_ONEWIRE_READ     "read"
 #define MSTR_ONEWIRE_SCAN     "scan"
 #define MSTR_ONEWIRE_PARASITE "parasite"
 

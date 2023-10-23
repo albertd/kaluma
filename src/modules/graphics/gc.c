@@ -53,7 +53,7 @@ uint16_t gc_color16(gc_handle_t *handle, uint8_t r, uint8_t g, uint8_t b) {
  * @brief Clear screen
  * @param handle Graphic context handle
  */
-void gc_clear_screen(gc_handle_t *handle) { handle->fill_screen_cb(handle, 0); }
+void gc_clear_screen(gc_handle_t *handle) { handle->fill_screen_cb(handle, handle->fill_color); }
 
 /**
  * @brief Fill screen

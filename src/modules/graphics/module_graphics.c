@@ -134,9 +134,9 @@ JERRYXX_FUN(gc_get_height_fn) {
 }
 
 /**
- * GraphicsContext.prototype.color16(r, g, b)
+ * GraphicsContext.prototype.color(r, g, b)
  */
-JERRYXX_FUN(gc_color16_fn) {
+JERRYXX_FUN(gc_color_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "red")
   JERRYXX_CHECK_ARG_NUMBER(1, "green")
   JERRYXX_CHECK_ARG_NUMBER(2, "blue")
@@ -144,8 +144,8 @@ JERRYXX_FUN(gc_color16_fn) {
   uint8_t green = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   uint8_t blue = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
-  uint16_t color16 = gc_color16(gc_handle, red, green, blue);
-  return jerry_create_number(color16);
+  gc_color color = gc_composit_color(gc_handle, red, green, blue);
+  return jerry_create_number(color);
 }
 
 /**
@@ -162,7 +162,7 @@ JERRYXX_FUN(gc_clear_screen_fn) {
  */
 JERRYXX_FUN(gc_fill_screen_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "color")
-  uint16_t color = (uint16_t)JERRYXX_GET_ARG_NUMBER(0);
+  gc_color color = (gc_color)JERRYXX_GET_ARG_NUMBER(0);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
   gc_fill_screen(gc_handle, color);
   return jerry_create_undefined();
@@ -193,7 +193,7 @@ JERRYXX_FUN(gc_get_rotation_fn) {
  */
 JERRYXX_FUN(gc_set_color_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "color")
-  uint16_t color = (uint16_t)JERRYXX_GET_ARG_NUMBER(0);
+  gc_color color = (gc_color)JERRYXX_GET_ARG_NUMBER(0);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
   gc_set_color(gc_handle, color);
   return jerry_create_undefined();
@@ -204,7 +204,7 @@ JERRYXX_FUN(gc_set_color_fn) {
  */
 JERRYXX_FUN(gc_get_color_fn) {
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
-  uint16_t color = gc_get_color(gc_handle);
+  gc_color color = gc_get_color(gc_handle);
   return jerry_create_number(color);
 }
 
@@ -213,7 +213,7 @@ JERRYXX_FUN(gc_get_color_fn) {
  */
 JERRYXX_FUN(gc_set_fill_color_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "color")
-  uint16_t color = (uint16_t)JERRYXX_GET_ARG_NUMBER(0);
+  gc_color color = (gc_color)JERRYXX_GET_ARG_NUMBER(0);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
   gc_set_fill_color(gc_handle, color);
   return jerry_create_undefined();
@@ -224,7 +224,7 @@ JERRYXX_FUN(gc_set_fill_color_fn) {
  */
 JERRYXX_FUN(gc_get_fill_color_fn) {
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
-  uint16_t color = gc_get_fill_color(gc_handle);
+  gc_color color = gc_get_fill_color(gc_handle);
   return jerry_create_number(color);
 }
 
@@ -233,7 +233,7 @@ JERRYXX_FUN(gc_get_fill_color_fn) {
  */
 JERRYXX_FUN(gc_set_font_color_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "color")
-  uint16_t color = (uint16_t)JERRYXX_GET_ARG_NUMBER(0);
+  gc_color color = (gc_color)JERRYXX_GET_ARG_NUMBER(0);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
   gc_set_font_color(gc_handle, color);
   return jerry_create_undefined();
@@ -244,7 +244,7 @@ JERRYXX_FUN(gc_set_font_color_fn) {
  */
 JERRYXX_FUN(gc_get_font_color_fn) {
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
-  uint16_t color = gc_get_font_color(gc_handle);
+  gc_color color = gc_get_font_color(gc_handle);
   return jerry_create_number(color);
 }
 
@@ -333,7 +333,7 @@ JERRYXX_FUN(gc_set_pixel_fn) {
   JERRYXX_CHECK_ARG_NUMBER(2, "color")
   int16_t x = (int16_t)JERRYXX_GET_ARG_NUMBER(0);
   int16_t y = (int16_t)JERRYXX_GET_ARG_NUMBER(1);
-  uint16_t color = (uint16_t)JERRYXX_GET_ARG_NUMBER(2);
+  gc_color color = (gc_color)JERRYXX_GET_ARG_NUMBER(2);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
   gc_set_pixel(gc_handle, x, y, color);
   return jerry_create_undefined();
@@ -348,7 +348,7 @@ JERRYXX_FUN(gc_get_pixel_fn) {
   int16_t x = (int16_t)JERRYXX_GET_ARG_NUMBER(0);
   int16_t y = (int16_t)JERRYXX_GET_ARG_NUMBER(1);
   JERRYXX_GET_NATIVE_HANDLE(gc_handle, gc_handle_t, gc_handle_info);
-  uint16_t color = gc_get_pixel(gc_handle, x, y);
+  gc_color color = gc_get_pixel(gc_handle, x, y);
   return jerry_create_number(color);
 }
 
@@ -515,9 +515,9 @@ JERRYXX_FUN(gc_draw_bitmap_fn) {
   uint16_t w = 0;
   uint16_t h = 0;
   uint8_t bpp = 1;
-  uint16_t color = bpp == 1 ? 1 : 0xffff;
+  gc_color color = bpp == 1 ? 1 : (gc_color) (~0);
   bool transparent = false;
-  uint16_t transparent_color = 0;
+  gc_color transparent_color = 0;
   uint8_t scale_x = 1;
   uint8_t scale_y = 1;
   bool flip_x = false;
@@ -542,7 +542,7 @@ JERRYXX_FUN(gc_draw_bitmap_fn) {
               jerryxx_get_property(options, MSTR_GRAPHICS_TRANSPARENT);
           if (jerry_value_is_number(tp)) {
             transparent = true;
-            transparent_color = (uint16_t)jerry_get_number_value(tp);
+            transparent_color = (gc_color)jerry_get_number_value(tp);
           }
           jerry_release_value(tp);
           scale_x = jerryxx_get_property_number(options, MSTR_GRAPHICS_SCALE_X,
@@ -716,7 +716,9 @@ jerry_value_t module_graphics_init() {
   jerryxx_set_property_function(gc_prototype, MSTR_GRAPHICS_GET_HEIGHT,
                                 gc_get_height_fn);
   jerryxx_set_property_function(gc_prototype, MSTR_GRAPHICS_COLOR16,
-                                gc_color16_fn);
+                                gc_color_fn);
+  jerryxx_set_property_function(gc_prototype, MSTR_GRAPHICS_COLOR,
+                                gc_color_fn);
   jerryxx_set_property_function(gc_prototype, MSTR_GRAPHICS_SET_COLOR,
                                 gc_set_color_fn);
   jerryxx_set_property_function(gc_prototype, MSTR_GRAPHICS_GET_COLOR,
@@ -777,7 +779,9 @@ jerry_value_t module_graphics_init() {
   jerryxx_set_property_function(buffered_gc_prototype, MSTR_GRAPHICS_GET_HEIGHT,
                                 gc_get_height_fn);
   jerryxx_set_property_function(buffered_gc_prototype, MSTR_GRAPHICS_COLOR16,
-                                gc_color16_fn);
+                                gc_color_fn);
+  jerryxx_set_property_function(buffered_gc_prototype, MSTR_GRAPHICS_COLOR,
+                                gc_color_fn);
   jerryxx_set_property_function(buffered_gc_prototype, MSTR_GRAPHICS_SET_COLOR,
                                 gc_set_color_fn);
   jerryxx_set_property_function(buffered_gc_prototype, MSTR_GRAPHICS_GET_COLOR,

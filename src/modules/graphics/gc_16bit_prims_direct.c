@@ -96,12 +96,14 @@ static void gc_send_command(uint8_t command, const uint8_t length, const uint8_t
 #endif
 
 static void gc_initialize_display() {
+
   static const uint8_t data_C2[] = { 0x33 };
   static const uint8_t data_C5[] = { 0x00, 0x1E, 0x80 };
   static const uint8_t data_B1[] = { 0xB0 };
   static const uint8_t data_E0[] = { 0x00, 0x13, 0x18, 0x04, 0x0F, 0x06, 0x3A, 0x56, 0x4D, 0x03, 0x0A, 0x06, 0x30, 0x3E, 0x0F };
   static const uint8_t data_E1[] = { 0x00, 0x13, 0x18, 0x01, 0x11, 0x06, 0x38, 0x34, 0x4D, 0x06, 0x0D, 0x0B, 0x31, 0x37, 0x0F };
-  static const uint8_t data_3A[] = { 0x55 }; //0x51 => 3-bits
+  static const uint8_t data_3A[] = { 0x66 }; // 18 pixel deep color
+  // static const uint8_t data_3A[] = { 0x77 }; // 24 pixel deep color
   static const uint8_t data_B6[] = { 0x00, 0x62 };
   static const uint8_t data_36[] = { 0x28 };
 
@@ -122,7 +124,7 @@ static void gc_initialize_display() {
 
 /* 
  */
-static void gc_fill_area(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
+static void gc_fill_area(uint16_t x, uint16_t y, uint16_t width, uint16_t height, gc_color color) {
     uint8_t point[4];
     uint32_t pixels = height * width;
 
@@ -141,11 +143,17 @@ static void gc_fill_area(uint16_t x, uint16_t y, uint16_t width, uint16_t height
     gc_send_command(0x2C, 0, NULL);
 
     // Push the pixelData through...
-    point[0] = (color >> 8);
-    point[1] = (color & 0xFF);
+    // 3A -> 0x66
+    point[2] = (color & 0x00003F) << 2;
+    point[1] = (color & 0x003F00) >> 6;
+    point[0] = (color & 0x3F0000) >> 14;
+    point[0] ^= 0xFC;
+    point[1] ^= 0xFC;
+    point[2] ^= 0xFC;
+
     km_gpio_write(chip_select, 0);
     for (uint32_t count = 0; count < pixels; count++) {
-        km_spi_send(spi_bus, point, 2, 100);
+        km_spi_send(spi_bus, point, 3, 100);
     }
     km_gpio_write (chip_select, 1);
 }
@@ -176,14 +184,14 @@ static bool gc_adjust_coordinates(gc_handle_t *handle, int16_t* x, int16_t* y) {
  */
 
 static void gc_prim_16bit_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                             uint16_t color) {
+                             gc_color color) {
   if (gc_adjust_coordinates(handle, &x, &y) == true) {
     gc_fill_area(x,y,1,1,color);
   }
 }
 
 static void gc_prim_16bit_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                             uint16_t *color) {
+                             gc_color *color) {
   if ((x >= 0) && (x < handle->width) && (y >= 0) && (y < handle->height)) {
    uint32_t idx = ((y * handle->device_width) + x) * 2;
     *color = handle->buffer[idx] << 8 | handle->buffer[idx + 1];
@@ -191,7 +199,7 @@ static void gc_prim_16bit_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
 }
 
 static void gc_prim_16bit_draw_vline(gc_handle_t *handle, int16_t x, int16_t y,
-                              int16_t h, uint16_t color) {
+                              int16_t h, gc_color color) {
 
   if (gc_adjust_coordinates(handle, &x, &y) == true) {
     gc_fill_area(x,y,1,h,color);
@@ -199,21 +207,21 @@ static void gc_prim_16bit_draw_vline(gc_handle_t *handle, int16_t x, int16_t y,
 }
 
 static void gc_prim_16bit_draw_hline(gc_handle_t *handle, int16_t x, int16_t y,
-                              int16_t w, uint16_t color) {
+                              int16_t w, gc_color color) {
   if (gc_adjust_coordinates(handle, &x, &y) == true) {
     gc_fill_area(x,y,w,1,color);
   }
 }
 
 static void gc_prim_16bit_fill_rect(gc_handle_t *handle, int16_t x, int16_t y,
-                             int16_t w, int16_t h, uint16_t color) {
+                             int16_t w, int16_t h, gc_color color) {
 
   if (gc_adjust_coordinates(handle, &x, &y) == true) {
     gc_fill_area(x,y,w,h,color);
   }
 }
 
-static void gc_prim_16bit_fill_screen(gc_handle_t *handle, uint16_t color) {
+static void gc_prim_16bit_fill_screen(gc_handle_t *handle, gc_color color) {
   gc_fill_area(0,0,handle->device_width,handle->device_height,color);
 }
 

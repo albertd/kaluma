@@ -35,7 +35,7 @@
  */
 
 void gc_prim_cb_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                          uint16_t color) {
+                          gc_color color) {
   if ((x >= 0) && (x < handle->width) && (y >= 0) && (y < handle->height)) {
     switch (handle->rotation) {
       case 1:
@@ -69,7 +69,7 @@ void gc_prim_cb_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
 }
 
 void gc_prim_cb_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                          uint16_t *color) {
+                          gc_color* color) {
   if ((x >= 0) && (x < handle->width) && (y >= 0) && (y < handle->height)) {
     switch (handle->rotation) {
       case 1:
@@ -93,7 +93,7 @@ void gc_prim_cb_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
       jerry_value_t ret_val =
           jerry_call_function(handle->get_pixel_js_cb, this_val, args, 2);
       if (jerry_value_is_number(ret_val)) {
-        *color = (uint16_t)jerry_get_number_value(ret_val);
+        *color = (gc_color)jerry_get_number_value(ret_val);
       }
       jerry_release_value(ret_val);
       jerry_release_value(arg_x);
@@ -104,17 +104,17 @@ void gc_prim_cb_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
 }
 
 void gc_prim_cb_draw_vline(gc_handle_t *handle, int16_t x, int16_t y, int16_t h,
-                           uint16_t color) {
+                           gc_color color) {
   gc_prim_cb_fill_rect(handle, x, y, 1, h, color);
 }
 
 void gc_prim_cb_draw_hline(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
-                           uint16_t color) {
+                           gc_color color) {
   gc_prim_cb_fill_rect(handle, x, y, w, 1, color);
 }
 
 void gc_prim_cb_fill_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
-                          int16_t h, uint16_t color) {
+                          int16_t h, gc_color color) {
   int16_t x1 = x;
   int16_t y1 = y;
   int16_t x2 = x + w - 1;
@@ -176,7 +176,7 @@ void gc_prim_cb_fill_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
   }
 }
 
-void gc_prim_cb_fill_screen(gc_handle_t *handle, uint16_t color) {
+void gc_prim_cb_fill_screen(gc_handle_t *handle, gc_color color) {
   gc_prim_cb_fill_rect(handle, 0, 0, handle->device_width,
                        handle->device_height, color);
 }

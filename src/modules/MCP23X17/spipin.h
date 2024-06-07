@@ -1,0 +1,402 @@
+#pragma once
+
+#include <stdio.h>
+#include <algorithm>
+#include <pico/stdlib.h>
+#include <hardware/spi.h>
+
+#include "defs.h"
+
+namespace SPIDevice {
+
+    class MCP23X17Port {
+    public:
+        MCP23X17Port (
+            const uint8_t bus,
+            const uint8_t ce,
+            const uint8_t address,
+            const uint8_t mode,
+            const bool msb_order,
+            const uint32_t speed,
+            const uint8_t bitsPerWord)
+            : _spi(bus == 0 ? spi0 : (bus == 1 ? spi1 : nullptr))
+            , _ce(ce)
+            , _baseAddress(0x40 | ((address & 0x07) << 1)) {
+
+            gpio_init(_ce);
+            gpio_set_dir(_ce, GPIO_OUT);
+            ASSERT(spi != nullptr);
+
+            spi_cpol_t pol = SPI_CPOL_0;
+            spi_cpha_t pha = SPI_CPHA_0;
+            spi_order_t order = (msb_order ? SPI_MSB_FIRST : SPI_LSB_FIRST);
+            switch (mode) {
+                case 0:
+                    pol = SPI_CPOL_0;
+                    pha = SPI_CPHA_0;
+                    break;
+                case 1:
+                    pol = SPI_CPOL_0;
+                    pha = SPI_CPHA_1;
+                    break;
+                case 2:
+                    pol = SPI_CPOL_1;
+                    pha = SPI_CPHA_0;
+                    break;
+                case 3:
+                    pol = SPI_CPOL_1;
+                    pha = SPI_CPHA_1;
+                    break;
+            }
+            spi_init(_spi, speed);
+            spi_set_format(_spi, bitsPerWord, pol, pha, order);
+            gpio_set_function(10, GPIO_FUNC_SPI); // CLK
+            gpio_set_function(11, GPIO_FUNC_SPI); // MOSI
+            gpio_set_function(12, GPIO_FUNC_SPI); // MISO
+        }
+        ~MCP23X17Port() {
+            spi_deinit(_spi);
+        }
+
+    public:
+        void Exchange (const uint8_t length, uint8_t buffer) {
+
+            buffer[0] = buffer[0] | _baseAddress;
+
+            // Send out and receive the requested bytes...
+            gpio_put(_ce, 0);
+            sleep_us(100);
+            spi_write_read_blocking(_spi, buffer, buffer, length);
+            gpio_put(_ce, 1);
+        }
+
+    private:
+        spi_inst_t* _spi;
+        const uint8_t _ce;
+        const uint8_t _address;
+    }
+
+ 
+    class MCP23X17
+    {
+    private:
+        class Device {
+        public:
+            enum registers : uint8_t {
+                IODIRA   = 0x00,  // I/O direction A
+                IODIRB   = 0x01,  // I/O direction B
+                IPOLA    = 0x02,  // I/O polarity A
+                IPOLB    = 0x03,  // I/O polarity B
+                GPINTENA = 0x04,  // interupt enable A
+                GPINTENB = 0x05,  // interupt enable B
+                DEFVALA  = 0x06,  // register default value A (interupts)
+                DEFVALB  = 0x07,  // register default value B (interupts)
+                INTCONA  = 0x08,  // interupt control A
+                INTCONB  = 0x09,  // interupt control B
+                IOCON    = 0x0A,  // I/O config (also 0x0B)
+                GPPUA    = 0x0C,  // port A pullups
+                GPPUB    = 0x0D,  // port B pullups
+                INTFA    = 0x0E,  // interupt flag A (where the interupt came from)
+                INTFB    = 0x0F,  // interupt flag B
+                INTCAPA  = 0x10,  // interupt capture A (value at interupt is saved here)
+                INTCAPB  = 0x11,  // interupt capture B
+                GPIOA    = 0x12,  // port A
+                GPIOB    = 0x13,  // port B
+                OLATA    = 0x14,  // output latch A
+                OLATB    = 0x15   // output latch B
+            };
+        
+            enum port : uint8_t {
+                PORTA,
+                PORTB
+            };
+        
+        public:
+            Device() = delete;
+            Device(Device&&) = delete;
+            Device(const Device&) = delete;
+            Device& operator= (Device&&) = delete;
+            Device& operator= (const Device&) = delete;
+        
+            /*
+             * The MCP23S17 is a slave SPI device. The slave address contains four
+             * fixed bits (0b0100) and three user-defined hardware address bits
+             * (if enabled via IOCON.HAEN; pins A2, A1 and A0) with the
+             * read/write command bit filling out the rest of the control byte::
+             *
+             *     +--------------------+
+             *     |0|1|0|0|A2|A1|A0|R/W|
+             *     +--------------------+
+             *     |fixed  |hw_addr |R/W|
+             *     +--------------------+
+             *     |7|6|5|4|3 |2 |1 | 0 |
+             *     +--------------------+
+             *
+             */
+            Device(MCP23X17Port& spiPort) : _spiPort(spiPort) {
+            }
+            ~Device() = default;
+        
+        public:
+            uint8_t Dump(enum registers index) {
+                return (ReadRegister(index));
+            }
+            inline void Reset() {
+               WriteRegister(IODIRA,   0xA5);
+               WriteRegister(IODIRB,   0x5A);
+               WriteRegister(PORTA,    0x00);
+               WriteRegister(PORTB,    0x00);
+               WriteRegister(GPINTENA, 0x00);
+               WriteRegister(GPINTENB, 0x00);
+               WriteRegister(IPOLA,    0x00);
+               WriteRegister(IPOLB,    0x00);
+               WriteRegister(GPPUA,    0x00);
+               WriteRegister(GPPUB,    0x00);
+               WriteRegister(OLATA,    0x00);
+               WriteRegister(OLATB,    0x00);
+            }
+            inline void Interrupt(const bool single, const bool opendrain, const bool activeLow) {
+                uint8_t result = (ReadRegister(IOCON) & ~(0x46));
+                result |= (single ? 0x40 : 0x00) | (opendrain ? 0x04 : 0x00) | (activeLow ? 0x00 : 0x02);
+                WriteRegister(IOCON, result);
+            }
+            inline bool Pin(const uint8_t pin) const {
+                ASSERT (pin < 16);
+                return ((Get(pin < 8 ? PORTA : PORTB) & (1 << (pin < 8 ? pin : pin - 8))) != 0);
+            }
+            inline void Pin(const uint8_t pin, const bool value) {
+                ASSERT (pin < 16);
+                uint8_t current (Get(pin < 8 ? PORTA : PORTB));
+                uint8_t mask = (1 << (pin < 8 ? pin : pin - 8));
+                if (value == true) {
+                    if ((current & mask) == 0) {
+                        Set ( static_cast<port>(pin < 8 ? PORTA : PORTB), static_cast<uint8_t>(current | mask));
+                    }
+                }
+                else if ((current & mask) != 0) {
+                    Set ( static_cast<port>(pin < 8 ? PORTA : PORTB), static_cast<uint8_t>(current & (~mask)));
+                }
+            }
+            inline uint8_t Get(const port which) const {
+                uint8_t mask = ~(ReadRegister(which == PORTA ? IODIRA : IODIRB));
+                mask &= ReadRegister(which == PORTA ? IPOLA : IPOLB);
+                return (ReadRegister(which == PORTA ? GPIOA : GPIOB) ^ mask);
+            }
+            inline void Set(const port which, const uint8_t value) {
+                uint8_t mask = ~(ReadRegister(which == PORTA ? IODIRA : IODIRB));
+                mask &= ReadRegister(which == PORTA ? IPOLA : IPOLB);
+                WriteRegister(which == PORTA ? GPIOA : GPIOB, value ^ mask);
+            }
+            inline void Set (const uint16_t value) {
+                Set (PORTA, (value & 0xFF));
+                Set (PORTB, ((value >> 8) & 0xFF));
+            }
+            void Mode(const uint8_t pin, const bool input, const NextGen::trigger_mode trigger, const uint8_t character) {
+                const uint8_t offset  = (pin < 8 ? 0: 1);
+                const uint8_t mask = (1 << (pin < 8 ? pin : pin - 8));
+        
+                // Read current states of register..
+                uint8_t pol  = ReadRegister(IPOLA + offset);
+                uint8_t dir  = ReadRegister(IODIRA + offset);
+        
+                // Depending on in, or out, change the plan of attach..
+                if (input == true) {
+                    WriteRegister(IODIRA + offset, dir | mask);
+                    Interrupt(trigger, mask, offset);
+        
+                    uint8_t pull = ReadRegister(GPPUA + offset);
+                    if (character & pull_mode::UP) {
+                        WriteRegister(GPPUA + offset, pull | mask);
+                    }
+                    else {
+                        WriteRegister(GPPUA + offset, pull & (~mask));
+                    }
+                    if (character & pull_mode::NEGATIVE) {
+                        WriteRegister(IPOLA + offset, pol | mask);
+                    }
+                    else {
+                        WriteRegister(IPOLA + offset, pol & (~mask));
+                    }
+                }
+                else {
+                    if (character & pull_mode::NEGATIVE) {
+                        WriteRegister(IPOLA + offset, pol | mask);
+                    }
+                    else {
+                        WriteRegister(IPOLA + offset, pol & (~mask));
+                    }
+                    WriteRegister(IODIRA + offset, dir & (~mask));
+                    Interrupt(trigger, mask, offset);
+                }
+            }
+        
+        private:
+            bool Interrupt(const NextGen::trigger_mode mode, const uint8_t mask, const uint8_t offset) {
+                bool result = true;
+        
+                uint8_t ena  = ReadRegister(GPINTENA + offset);
+        
+                switch (mode) {
+                case NextGen::HIGH:
+                case NextGen::LOW:
+                     result = false;
+                     break;
+                case NextGen::NONE:
+                     WriteRegister(GPINTENA + offset, (ena & (~mask)));
+                     break;
+                case NextGen::FALLING: {
+                     WriteRegister(GPINTENA + offset, (ena | mask));
+                     uint8_t def = ReadRegister(DEFVALA + offset);
+                     uint8_t con = ReadRegister(INTCONA + offset);
+                     WriteRegister(DEFVALA + offset, (def | mask));
+                     WriteRegister(INTCONA + offset, (con | mask));
+                     break;
+                     }
+                case NextGen::RISING: {
+                     WriteRegister(GPINTENA + offset, (ena | mask));
+                     uint8_t def = ReadRegister(DEFVALA + offset);
+                     uint8_t con = ReadRegister(INTCONA + offset);
+                     WriteRegister(DEFVALA + offset, (def & (~mask)));
+                     WriteRegister(INTCONA + offset, (con | mask));
+                     break;
+                     }
+                case NextGen::BOTH: {
+                     WriteRegister(GPINTENA + offset, (ena | mask));
+                     uint8_t con = ReadRegister(INTCONA + offset);
+                     WriteRegister(INTCONA + offset, (con & (~mask)));
+                     break;
+                     }
+                }
+        
+                return (result);
+            }
+            uint8_t ReadRegister(const uint8_t reg) const {
+                uint8_t buffer[3] = { 0x01, reg, 0xFF };
+                _spiPort(3, buffer);
+                return (buffer[2]);
+            }
+            void WriteRegister(const uint8_t reg, const uint8_t value) {
+                uint8_t buffer[] = { 0x00, reg, value};
+                _spiPort(3, buffer);
+            }
+        
+        private:
+            MCP23X17Port& spiport
+        };
+        
+    public:
+        MCP23X17() = delete;
+        MCP23X17(MCP23X17&&) = delete;
+        MCP23X17(const MCP23X17&) = delete;
+        MCP23X17& operator=(MCP23X17&&) = delete;
+        MCP23X17& operator=(const MCP23X17&) = delete;
+
+        // bit -> Lowest Nible is the bit 0 => Port A bit 0, 8 => Port B Bit 0, highest nible is the number of bit to occupy (-1).
+        MCP23X17(MCP23X17Port& spiPort, const uint8_t bit, NextGen::trigger_mode trigger, const uint8_t character, const bool output)
+            : _device(bus, ce, address)
+            , _bits(bit)
+            , _max((1 << (((bit >> 4) & 0xF) + 1)) - 1) {
+
+            // Set the mode of the associated pins...
+            uint8_t pin = (bit & 0x0F);
+            uint16_t mask = _max;
+
+            while (mask > 0) {
+                _device.Mode(pin, !output, trigger, character);
+                pin++;
+                mask = (mask >> 1);
+            }
+        }
+        ~MCP23X17() = default;
+
+    public:
+        void Reset() {
+                _device.Reset();
+                _device.Interrupt(false, true, true);
+        }
+        void Dump() {
+            printf("\n===================");
+            printf("\nIODIRA:   %02X", _device.Dump(Device::IODIRA));
+            printf("\nIODIRB:   %02X", _device.Dump(Device::IODIRB));
+            printf("\nGPINTENA: %02X", _device.Dump(Device::GPINTENA));
+            printf("\nGPINTENB: %02X", _device.Dump(Device::GPINTENB));
+            printf("\nINTCONA:  %02X", _device.Dump(Device::INTCONA));
+            printf("\nINTCONB:  %02X", _device.Dump(Device::INTCONB));
+            printf("\nGPIOA:    %02X", _device.Dump(Device::GPIOA));
+            printf("\nGPIOB:    %02X", _device.Dump(Device::GPIOB));
+            printf("\nINTFA:    %02X", _device.Dump(Device::INTFA));
+            printf("\nINTFB:    %02X", _device.Dump(Device::INTFB));
+            printf("\nIOCON:    %02X", _device.Dump(Device::IOCON));
+            printf("\n===================");
+        }
+        bool Get() const {
+            bool result = false;
+            uint16_t value;
+
+            if (Read(value) == 0) {
+                result = (value != 0);
+            }
+            return (result);
+        }
+        void Set(const bool value) {
+            Write(value ? 1 : 0);
+        }
+        uint16_t Read(uint16_t& value) const {
+            uint8_t offset = (_bits & 0x7);
+            uint8_t bits = (((_bits >> 4) & 0x0F) + 1);
+
+            uint16_t part = _device.Get(((_bits & 0x08) == 0) ? Device::port::PORTA : Device::port::PORTB);
+
+            if (bits <= (8 - offset)) {
+                part = (part >> offset);
+            }
+            else {
+                uint8_t part2 = _device.Get(Device::port::PORTB);
+
+                part = (part >> offset);
+
+                // We also need to read the second part..
+                part = (part & ((1 << (8 - offset)) - 1)) | (part2 << (8 - offset));
+            }
+
+            value = (part & _max);
+
+            return (0);
+        }
+        uint16_t Write(const uint16_t value) {
+            uint8_t offset = (_bits & 0x7);
+            uint8_t mask = static_cast<uint8_t>((_max << offset) & 0xFF);
+
+            uint16_t newValue = (value & _max);
+            newValue = newValue << offset;
+
+            if ((_bits & 0x08) == 0)
+            {
+                // We start at PORTA
+                uint8_t part = _device.Get(Device::port::PORTA);
+                part = (part & (~mask)) | (newValue & mask);
+
+                _device.Set(Device::port::PORTA, part);
+                mask = static_cast<uint8_t>((_max >> (8 - offset)) & 0xFF);
+                newValue = newValue >> 8;
+                offset = 0;
+            }
+
+            if (((_bits & 0x08) != 0) || (mask != 0))
+            {
+                // Let see what we need to push to PortB
+                uint8_t part = (_device.Get(Device::port::PORTB) & 0xFF);
+                part = (part & (~mask)) | (newValue & mask);
+
+                _device.Set(Device::port::PORTB, part);
+            }
+
+            return (0);
+        }
+
+    private:
+        Device _device;
+        uint16_t _max;
+        const uint8_t _bits;
+    };
+}

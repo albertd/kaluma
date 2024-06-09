@@ -22,8 +22,11 @@
 #ifndef __MCP23X17_MAGIC_STRINGS_H
 #define __MCP23X17_MAGIC_STRINGS_H
 
-#define MSTR_MCP23X17_CONTEXT     "MCP23X17"
-#define MSTR_MCP23X17_SET_VALUE   "setValue"
-#define MSTR_MCP23X17_GET_VALUE   "getValue"
+#define MSTR_MCP23X17_CONTEXT      "MCP23X17"
+#define MSTR_MCP23X17_SET_VALUE    "setValue"
+#define MSTR_MCP23X17_GET_VALUE    "getValue"
+#define MSTR_MCP23X17_DUMP         "dump"
+#define MSTR_MCP23X17_SET_REGISTER "setRegister"
+#define MSTR_MCP23X17_GET_REGISTER "getRegister"
 
 #endif /* __MCP23X17_MAGIC_STRINGS_H */

@@ -4,6 +4,8 @@
 #include <cstring>
 #include <port/spi.h>
 
+extern "C" {
+
 #include "jerryscript.h"
 #include "jerryxx.h"
 #include "spi.h"
@@ -13,109 +15,39 @@
 #include "module_MCP23X17.h"
 #include "magic_strings_MCP23X17.h"
 
-class MCP23X17Port {
-public:
-    MCP23X17Port (
-        const uint8_t bus,
-        const uint8_t ce,
-        const uint8_t address,
-        const uint8_t mode,
-        const bool msb_order,
-        const uint32_t speed,
-        const uint8_t bitsPerWord,
-        const uint8_t clk,
-        const uint8_t mosi,
-        const uint8_t miso)
-        : _bus(bus)
-        , _ce(ce)
-        , _address(0x40 | ((address & 0x07) << 1)) {
+}
 
-	km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+static void InitializeBus (
+    const uint8_t bus,
+    const uint8_t mode,
+    const bool msb_order,
+    const uint32_t speed,
+    const uint8_t bitsPerWord,
+    const uint8_t clk,
+    const uint8_t mosi,
+    const uint8_t miso) {
 
-        km_spi_mode_t converted;
-        km_spi_pins_t pins;
-        pins.miso = miso;
-        pins.mosi = mosi;
-        pins.sck  = clk;
+    km_spi_mode_t converted;
+    km_spi_pins_t pins;
+    pins.miso = miso;
+    pins.mosi = mosi;
+    pins.sck  = clk;
 
-        switch (mode) {
-            case 0: converted = KM_SPI_MODE_0; break;
-            case 1: converted = KM_SPI_MODE_1; break;
-            case 2: converted = KM_SPI_MODE_2; break;
-            case 3: converted = KM_SPI_MODE_3; break;
-        }
+    switch (mode) {
+        case 0: converted = KM_SPI_MODE_0; break;
+        case 1: converted = KM_SPI_MODE_1; break;
+        case 2: converted = KM_SPI_MODE_2; break;
+        case 3: converted = KM_SPI_MODE_3; break;
+    }
  
-        km_spi_setup(
-            bus, 
-            converted, 
-            speed, 
-            (msb_order ? KM_SPI_BITORDER_MSB : KM_SPI_BITORDER_LSB),
-            pins,
-            false);
-
-        /*
-
-        gpio_init(_ce);
-        gpio_set_dir(_ce, GPIO_OUT);
-
-        ASSERT(_spi != nullptr);
-
-        spi_cpol_t pol = SPI_CPOL_0;
-        spi_cpha_t pha = SPI_CPHA_0;
-        spi_order_t order = (msb_order ? SPI_MSB_FIRST : SPI_LSB_FIRST);
-        switch (mode) {
-            case 0:
-                pol = SPI_CPOL_0;
-                pha = SPI_CPHA_0;
-                break;
-            case 1:
-                pol = SPI_CPOL_0;
-                pha = SPI_CPHA_1;
-                break;
-            case 2:
-                pol = SPI_CPOL_1;
-                pha = SPI_CPHA_0;
-                break;
-            case 3:
-                pol = SPI_CPOL_1;
-                pha = SPI_CPHA_1;
-                break;
-        }
-        spi_init(_spi, speed);
-        spi_set_format(_spi, bitsPerWord, pol, pha, order);
-        gpio_set_function(10, GPIO_FUNC_SPI); // CLK
-        gpio_set_function(11, GPIO_FUNC_SPI); // MOSI
-        gpio_set_function(12, GPIO_FUNC_SPI); // MISO
-        */
-    }
-    ~MCP23X17Port() {
-        /*
-        spi_deinit(_spi);
-        */
-        km_spi_close(_bus);
-    }
-
-public:
-    void Exchange (const uint8_t length, uint8_t buffer[]) {
-
-        buffer[0] = buffer[0] | _address;
-
-        // Send out and receive the requested bytes...
-        km_gpio_write(_ce, KM_GPIO_LOW);
-        // gpio_put(_ce, 0);
-        // sleep_us(100);
-        km_micro_delay(100);
-        km_spi_sendrecv(_bus, buffer, buffer, length, 10000);
-        // spi_write_read_blocking(_spi, buffer, buffer, length);
-        km_gpio_write(_ce, KM_GPIO_HIGH);
-        // gpio_put(_ce, 1);
-    }
-
-private:
-    const uint8_t _bus;
-    const uint8_t _ce;
-    const uint8_t _address;
-};
+    km_spi_setup(
+        bus, 
+        converted, 
+        speed, 
+        (msb_order ? KM_SPI_BITORDER_MSB : KM_SPI_BITORDER_LSB),
+        pins,
+        false);
+}
  
 class MCP23X17
 {
@@ -198,7 +130,11 @@ private:
          *     +--------------------+
          *
          */
-        Device(MCP23X17Port& spiPort) : _spiPort(spiPort) {
+        Device(const uint8_t bus, const uint8_t ce, const uint8_t address)
+            : _bus(bus)
+            , _ce(ce)
+            , _address(0x40 | ((address & 0x07) << 1)) {
+	    km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
         }
         ~Device() = default;
     
@@ -292,6 +228,26 @@ private:
                 Interrupt(trigger, mask, offset);
             }
         }
+        uint8_t ReadRegister(const uint8_t reg) const {
+            uint8_t buffer[3] = { static_cast<uint8_t>(_address | 0x01), reg, 0xFF };
+
+            // Send out and receive the requested bytes...
+            km_gpio_write(_ce, KM_GPIO_LOW);
+            km_micro_delay(100);
+            km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
+            km_gpio_write(_ce, KM_GPIO_HIGH);
+ 
+            return (buffer[2]);
+        }
+        void WriteRegister(const uint8_t reg, const uint8_t value) {
+            uint8_t buffer[] = { _address, reg, value};
+
+            // Send out and receive the requested bytes...
+            km_gpio_write(_ce, KM_GPIO_LOW);
+            km_micro_delay(100);
+            km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
+            km_gpio_write(_ce, KM_GPIO_HIGH);
+        }
     
     private:
         bool Interrupt(const trigger_mode mode, const uint8_t mask, const uint8_t offset) {
@@ -333,18 +289,11 @@ private:
     
             return (result);
         }
-        uint8_t ReadRegister(const uint8_t reg) const {
-            uint8_t buffer[3] = { 0x01, reg, 0xFF };
-            _spiPort.Exchange(3, buffer);
-            return (buffer[2]);
-        }
-        void WriteRegister(const uint8_t reg, const uint8_t value) {
-            uint8_t buffer[] = { 0x00, reg, value};
-            _spiPort.Exchange(3, buffer);
-        }
-    
+   
     private:
-        MCP23X17Port& _spiPort;
+        const uint8_t _bus;
+        const uint8_t _ce;
+        const uint8_t _address;
     };
     
 public:
@@ -355,8 +304,8 @@ public:
     MCP23X17& operator=(const MCP23X17&) = delete;
 
     // bit -> Lowest Nible is the bit 0 => Port A bit 0, 8 => Port B Bit 0, highest nible is the number of bit to occupy (-1).
-    MCP23X17(MCP23X17Port& spiPort, const uint8_t bit, trigger_mode trigger, const uint8_t character, const bool output)
-        : _device(spiPort)
+    MCP23X17(const uint8_t bus,const uint8_t ce, const uint8_t address, const uint8_t bit, trigger_mode trigger, const uint8_t character, const bool output)
+        : _device(bus, ce, address)
         , _bits(bit)
         , _max((1 << (((bit >> 4) & 0xF) + 1)) - 1) {
 
@@ -456,6 +405,12 @@ public:
 
         return (0);
     }
+    uint8_t ReadRegister(const uint8_t reg) const {
+        return (_device.ReadRegister(reg));
+    }
+    void WriteRegister(const uint8_t reg,const uint8_t value) {
+        _device.WriteRegister(reg, value);
+    }
 
 private:
     Device _device;
@@ -470,22 +425,24 @@ static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb}
 /*                               MCP23X17 CLASS                               */
 /* ************************************************************************** */
 
-static MCP23X17Port channel(1, 13, 0, 0, true, 1000000, 8, 10,11, 12);
-
 /**
  * MCP23X17() constructor
  */
 JERRYXX_FUN(ctor_fn) {
-  JERRYXX_CHECK_ARG_NUMBER(0, "index");
-  JERRYXX_CHECK_ARG_NUMBER(1, "base");
-  JERRYXX_CHECK_ARG_NUMBER(2, "bits");
-  JERRYXX_CHECK_ARG_STRING(3, "type");
+  JERRYXX_CHECK_ARG_NUMBER(0, "bus");
+  JERRYXX_CHECK_ARG_NUMBER(1, "ce");
+  JERRYXX_CHECK_ARG_NUMBER(2, "address");
+  JERRYXX_CHECK_ARG_NUMBER(3, "base");
+  JERRYXX_CHECK_ARG_NUMBER(4, "bits");
+  JERRYXX_CHECK_ARG_STRING(5, "type");
 
   // read parameters
-  uint8_t index = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t base  = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
-  uint8_t bits  = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
-  JERRYXX_GET_ARG_STRING_AS_CHAR(3, text);
+  uint8_t bus     = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
+  uint8_t ce      = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+  uint8_t address = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
+  uint8_t base    = (uint8_t)JERRYXX_GET_ARG_NUMBER(3);
+  uint8_t bits    = (uint8_t)JERRYXX_GET_ARG_NUMBER(4);
+  JERRYXX_GET_ARG_STRING_AS_CHAR(5, text);
 
   if ((base < 16) && (bits <= (16 - base))) {
       base = (base | (bits << 4));
@@ -518,10 +475,42 @@ JERRYXX_FUN(ctor_fn) {
       }
 
       // set native handle
-      MCP23X17* object = new MCP23X17(channel, base, trigger, 0, output);
+      MCP23X17* object = new MCP23X17(bus, ce, address, base, trigger, 0, output);
       jerry_set_object_native_pointer(this_val, object, &handle_info);
   }
 
+  return jerry_create_undefined();
+}
+
+/**
+ * MCP23X17.prototype.dump()
+ */
+JERRYXX_FUN(dump_fn) {
+  JERRYXX_GET_NATIVE_HANDLE(object, MCP23X17, handle_info);
+  object->Dump();
+  return jerry_create_undefined();
+}
+
+/**
+ * MCP23X17.prototype.readRegister()
+ */
+JERRYXX_FUN(get_register_fn) {
+  JERRYXX_CHECK_ARG_NUMBER(0, "register");
+  JERRYXX_GET_NATIVE_HANDLE(object, MCP23X17, handle_info);
+  uint8_t reg = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
+  return jerry_create_number(object->ReadRegister(reg));
+}
+
+/**
+ * MCP23X17.prototype.writeRegister()
+ */
+JERRYXX_FUN(set_register_fn) {
+  JERRYXX_CHECK_ARG_NUMBER(0, "register");
+  JERRYXX_CHECK_ARG_NUMBER(1, "value");
+  JERRYXX_GET_NATIVE_HANDLE(object, MCP23X17, handle_info);
+  uint8_t reg   = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
+  uint8_t value = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+  object->WriteRegister(reg, value);
   return jerry_create_undefined();
 }
 
@@ -553,8 +542,12 @@ jerry_value_t module_MCP23X17_init() {
   jerry_value_t ctor = jerry_create_external_function(ctor_fn);
   jerry_value_t prototype = jerry_create_object();
   jerryxx_set_property(ctor, "prototype", prototype);
-  jerryxx_set_property_function(prototype, MSTR_MCP23X17_SET_VALUE, set_value_fn);
-  jerryxx_set_property_function(prototype, MSTR_MCP23X17_GET_VALUE, get_value_fn);
+  jerryxx_set_property_function(prototype, MSTR_MCP23X17_DUMP,         dump_fn);
+  jerryxx_set_property_function(prototype, MSTR_MCP23X17_SET_VALUE,    set_value_fn);
+  jerryxx_set_property_function(prototype, MSTR_MCP23X17_GET_VALUE,    get_value_fn);
+  jerryxx_set_property_function(prototype, MSTR_MCP23X17_SET_REGISTER, set_register_fn);
+  jerryxx_set_property_function(prototype, MSTR_MCP23X17_GET_REGISTER, get_register_fn);
+
   jerry_release_value(prototype);
 
   /* ADCChannel module exports */
@@ -564,4 +557,3 @@ jerry_value_t module_MCP23X17_init() {
 
   return exports;
 }
-

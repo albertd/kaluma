@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <algorithm>
 
+extern "C" {
+
 #include "jerryscript.h"
 #include "jerryxx.h"
 #include "spi.h"
@@ -11,64 +13,8 @@
 #include "module_MCP3X0X.h"
 #include "magic_strings_MCP3X0X.h"
 
-class SPIPort {
-public:
-    SPIPort(
-        const uint8_t bus,
-        const uint8_t ce,
-        const uint8_t mode,
-        const bool msb_order,
-        const uint32_t speed,
-        const uint8_t bitsPerWord,
-        const uint8_t clk,
-        const uint8_t mosi,
-        const uint8_t miso)
-        : _bus(bus)
-        , _ce(ce) {
+}
 
-        km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
-
-        /*
-        km_spi_mode_t converted;
-        km_spi_pins_t pins;
-        pins.miso = miso;
-        pins.mosi = mosi;
-        pins.sck  = clk;
-
-        switch (mode) {
-            case 0: converted = KM_SPI_MODE_0; break;
-            case 1: converted = KM_SPI_MODE_1; break;
-            case 2: converted = KM_SPI_MODE_2; break;
-            case 3: converted = KM_SPI_MODE_3; break;
-        }
-
-        km_spi_setup(
-            bus,
-            converted,
-            speed,
-            (msb_order ? KM_SPI_BITORDER_MSB : KM_SPI_BITORDER_LSB),
-            pins,
-            false);
-        */
-    }
-    ~SPIPort() {
-        // km_spi_close(_bus);
-    }
-
-public:
-    void Exchange (const uint8_t length, uint8_t buffer[]) {
-
-        // Send out and receive the requested bytes...
-        km_gpio_write(_ce, KM_GPIO_LOW);
-        km_micro_delay(100);
-        km_spi_sendrecv(_bus, buffer, buffer, length, 10000);
-        km_gpio_write(_ce, KM_GPIO_HIGH);
-    }
-
-private:
-    const uint8_t _bus;
-    const uint8_t _ce;
-};
 
 template <const uint8_t BITS, const uint8_t CHANNELBITS>
 class MCP3X0XType 
@@ -104,12 +50,14 @@ public:
     MCP3X0XType<BITS,CHANNELBITS>& operator=(MCP3X0XType<BITS,CHANNELBITS>&&) = delete;
     MCP3X0XType<BITS,CHANNELBITS>& operator=(const MCP3X0XType<BITS,CHANNELBITS>&) = delete;
 
-    MCP3X0XType(SPIPort& port, const mode channel, const int16_t min=0, const int16_t max=Range)
-        : _port(port)
+    MCP3X0XType(const uint8_t bus, const uint8_t ce, const mode channel, const int16_t min=0, const int16_t max=Range)
+        : _bus(bus)
+        , _ce(ce)
         , _channel(channel)
         , _inverse(_min > _max)
         , _min(_inverse ? max : min)
         , _max(_inverse ? min : max) {
+        km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
     }
     ~MCP3X0XType() = default;
 
@@ -156,7 +104,11 @@ private:
             buffer[1] = 0xFF;
             buffer[2] = 0xFF;
 
-            _port.Exchange(3, buffer);
+            // Send out and receive the requested bytes...
+            km_gpio_write(_ce, KM_GPIO_LOW);
+            km_micro_delay(100);
+            km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
+            km_gpio_write(_ce, KM_GPIO_HIGH);
 
             if ((CHANNELBITS == 1) && (BITS == 10)) {
                     result = ((buffer[0] & 0x02)  << 8) | (buffer[1] & 0xFF);
@@ -185,11 +137,12 @@ private:
 
  
 private:
-    SPIPort& _port;
-    mode     _channel;
-    bool     _inverse;
-    int16_t  _min;
-    int16_t  _max;
+    const uint8_t _bus;
+    const uint8_t _ce;
+    mode          _channel;
+    bool          _inverse;
+    int16_t       _min;
+    int16_t       _max;
 };
 
 using MCP3002 = MCP3X0XType<10, 1>;
@@ -206,23 +159,23 @@ static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb}
 /*                              MCP3208 CLASS                             */
 /* ************************************************************************** */
 
-static SPIPort channel(1, 14, 0, true, 1000000, 8, 10,11, 12);
-
 /**
  * MCP3208() constructor
  */
 JERRYXX_FUN(ctor_MCP3208_fn) {
-  JERRYXX_CHECK_ARG_NUMBER(0, "index");
-  JERRYXX_CHECK_ARG_NUMBER(1, "channel");
-  JERRYXX_CHECK_ARG_NUMBER(2, "differenial");
+  JERRYXX_CHECK_ARG_NUMBER(0, "bus");
+  JERRYXX_CHECK_ARG_NUMBER(1, "ce");
+  JERRYXX_CHECK_ARG_NUMBER(2, "channel");
+  JERRYXX_CHECK_ARG_NUMBER(3, "differenial");
 
   // read parameters
-  uint8_t index = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t line = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
-  bool diffrential = (bool)JERRYXX_GET_ARG_NUMBER(2);
+  uint8_t bus  = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
+  uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+  uint8_t line = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
+  bool diffrential = (bool)JERRYXX_GET_ARG_NUMBER(3);
 
   // set native handle
-  MCP3208* object = new MCP3208(channel, MCP3208::ToChannel(line, diffrential));
+  MCP3208* object = new MCP3208(bus, ce, MCP3208::ToChannel(line, diffrential));
   jerry_set_object_native_pointer(this_val, object, &handle_info);
 
   return jerry_create_undefined();
@@ -245,7 +198,6 @@ JERRYXX_FUN(get_value_fn) {
   object->Value(value);
   return jerry_create_number(value);
 }
-
 
 /**
  * Initialize MCP3X0X module

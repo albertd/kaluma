@@ -30,6 +30,8 @@ if(NOT MODULES)
     spi
     uart
     graphics
+    MCP23X17
+    MCP3X0X
     at
     storage
     wifi

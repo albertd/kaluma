@@ -1,3 +1,3 @@
 list(APPEND SOURCES
-  ${SRC_DIR}/modules/MCP23X17/module_MCP23X17.c)
+  ${SRC_DIR}/modules/MCP23X17/module_MCP23X17.cpp)
 include_directories(${SRC_DIR}/modules/MCP23X17)

@@ -21,4 +21,4 @@
 
 #include "jerryscript.h"
 
-jerry_value_t module_MCP3X0X_init();
+jerry_value_t module_MCP23X17_init();

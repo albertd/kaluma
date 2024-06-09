@@ -1,11 +1,12 @@
-#pragma once
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
 
 #include "jerryscript.h"
 #include "jerryxx.h"
+#include "spi.h"
+#include "gpio.h"
+#include "system.h"
 
 #include "module_MCP3X0X.h"
 #include "magic_strings_MCP3X0X.h"
@@ -18,59 +19,56 @@ public:
         const uint8_t mode,
         const bool msb_order,
         const uint32_t speed,
-        const uint8_t bitsPerWord)
-        : _spi(bus == 0 ? spi0 : (bus == 1 ? spi1 : nullptr))
+        const uint8_t bitsPerWord,
+        const uint8_t clk,
+        const uint8_t mosi,
+        const uint8_t miso)
+        : _bus(bus)
         , _ce(ce) {
 
-        gpio_init(_ce);
-        gpio_set_dir(_ce, GPIO_OUT);
-        ASSERT(spi != nullptr);
+        km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
 
-        spi_cpol_t pol = SPI_CPOL_0;
-        spi_cpha_t pha = SPI_CPHA_0;
-        spi_order_t order = (msb_order ? SPI_MSB_FIRST : SPI_LSB_FIRST);
+        /*
+        km_spi_mode_t converted;
+        km_spi_pins_t pins;
+        pins.miso = miso;
+        pins.mosi = mosi;
+        pins.sck  = clk;
+
         switch (mode) {
-            case 0:
-                pol = SPI_CPOL_0;
-                pha = SPI_CPHA_0;
-                break;
-            case 1:
-                pol = SPI_CPOL_0;
-                pha = SPI_CPHA_1;
-                break;
-            case 2:
-                pol = SPI_CPOL_1;
-                pha = SPI_CPHA_0;
-                break;
-            case 3:
-                pol = SPI_CPOL_1;
-                pha = SPI_CPHA_1;
-                break;
+            case 0: converted = KM_SPI_MODE_0; break;
+            case 1: converted = KM_SPI_MODE_1; break;
+            case 2: converted = KM_SPI_MODE_2; break;
+            case 3: converted = KM_SPI_MODE_3; break;
         }
-        spi_init(_spi, speed);
-        spi_set_format(_spi, bitsPerWord, pol, pha, order);
-        gpio_set_function(10, GPIO_FUNC_SPI); // CLK
-        gpio_set_function(11, GPIO_FUNC_SPI); // MOSI
-        gpio_set_function(12, GPIO_FUNC_SPI); // MISO
+
+        km_spi_setup(
+            bus,
+            converted,
+            speed,
+            (msb_order ? KM_SPI_BITORDER_MSB : KM_SPI_BITORDER_LSB),
+            pins,
+            false);
+        */
     }
     ~SPIPort() {
-        spi_deinit(_spi);
+        // km_spi_close(_bus);
     }
 
 public:
-    void Exchange (const uint8_t length, uint8_t buffer) {
+    void Exchange (const uint8_t length, uint8_t buffer[]) {
 
         // Send out and receive the requested bytes...
-        gpio_put(_ce, 0);
-        sleep_us(100);
-        spi_write_read_blocking(_spi, buffer, buffer, length);
-        gpio_put(_ce, 1);
+        km_gpio_write(_ce, KM_GPIO_LOW);
+        km_micro_delay(100);
+        km_spi_sendrecv(_bus, buffer, buffer, length, 10000);
+        km_gpio_write(_ce, KM_GPIO_HIGH);
     }
 
 private:
-    spi_inst_t* _spi;
-    uint8_t _ce;
-}
+    const uint8_t _bus;
+    const uint8_t _ce;
+};
 
 template <const uint8_t BITS, const uint8_t CHANNELBITS>
 class MCP3X0XType 
@@ -96,6 +94,9 @@ public:
         DIFFERENTIAL_7 = 0xF
     };
 
+    static constexpr uint16_t Range = (1 << BITS) - 1;
+    static constexpr uint8_t Channels = 1 << CHANNELBITS;
+
 public:
     MCP3X0XType() = delete;
     MCP3X0XType(MCP3X0XType<BITS,CHANNELBITS>&&) = delete;
@@ -103,17 +104,19 @@ public:
     MCP3X0XType<BITS,CHANNELBITS>& operator=(MCP3X0XType<BITS,CHANNELBITS>&&) = delete;
     MCP3X0XType<BITS,CHANNELBITS>& operator=(const MCP3X0XType<BITS,CHANNELBITS>&) = delete;
 
-    MCP3X0XType(SPIPort& port, const mode channel, const int16_t min, const int16_t max)
+    MCP3X0XType(SPIPort& port, const mode channel, const int16_t min=0, const int16_t max=Range)
         : _port(port)
         , _channel(channel)
         , _inverse(_min > _max)
         , _min(_inverse ? max : min)
         , _max(_inverse ? min : max) {
-        ASSERT((_channel & 0x7) <= Device::Channels);
     }
     ~MCP3X0XType() = default;
 
 public:
+    uint8_t Channel() const {
+        return (_channel & 0x07);
+    }
     int16_t Get() const {
         int16_t value;
         if (Value(value) == 0) {
@@ -123,12 +126,16 @@ public:
     }
     // Value determination of this element
     uint16_t Value(int16_t& value) const {
-        int16_t result = _device.Value(_channel & 0x07, ((_channel & 0x08) != 0));
+        int16_t result = Value(_channel & 0x07, ((_channel & 0x08) != 0));
         result = (_inverse ? -result : result);
 
         value = ToRange(result);
 
-        return (_device.Error());
+        return (0);
+    }
+
+    static mode ToChannel(const uint8_t channel, bool diffrential) {
+        return (static_cast<mode>((channel & 0x07) | (diffrential ? 0x8 : 0x0)));
     }
 
 private:
@@ -169,8 +176,8 @@ private:
         int32_t result = value;
 
         // Adapt it to the requetsed value, if needed..
-        if ((_max - _min) != Device::Range) {
-            result = ((((value * Device::Range * 2) + (_max - _min)) / (2 * (_max - _min))) + _min);
+        if ((_max - _min) != Range) {
+            result = ((((value * Range * 2) + (_max - _min)) / (2 * (_max - _min))) + _min);
         }
 
         return (result);
@@ -196,24 +203,26 @@ static void handle_freecb(void *handle) { delete (MCP3208*) handle; }
 static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb};
 
 /* ************************************************************************** */
-/*                              ADC CHANNEL CLASS                             */
+/*                              MCP3208 CLASS                             */
 /* ************************************************************************** */
 
+static SPIPort channel(1, 14, 0, true, 1000000, 8, 10,11, 12);
+
 /**
- * ADCChannel() constructor
+ * MCP3208() constructor
  */
-JERRYXX_FUN(ctor_fn) {
+JERRYXX_FUN(ctor_MCP3208_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "index");
   JERRYXX_CHECK_ARG_NUMBER(1, "channel");
   JERRYXX_CHECK_ARG_NUMBER(2, "differenial");
 
   // read parameters
   uint8_t index = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t channel = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+  uint8_t line = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   bool diffrential = (bool)JERRYXX_GET_ARG_NUMBER(2);
 
   // set native handle
-  MCP3208* object = new MCP3208();
+  MCP3208* object = new MCP3208(channel, MCP3208::ToChannel(line, diffrential));
   jerry_set_object_native_pointer(this_val, object, &handle_info);
 
   return jerry_create_undefined();
@@ -223,7 +232,7 @@ JERRYXX_FUN(ctor_fn) {
  * ADCChannel.prototype.getChannel()
  */
 JERRYXX_FUN(get_channel_fn) {
-  JERRYXX_GET_NATIVE_HANDLE(object, Object, handle_info);
+  JERRYXX_GET_NATIVE_HANDLE(object, MCP3208, handle_info);
   return jerry_create_number(object->Channel());
 }
 
@@ -231,8 +240,10 @@ JERRYXX_FUN(get_channel_fn) {
  * ADCChannel.prototype.getValue()
  */
 JERRYXX_FUN(get_value_fn) {
-  JERRYXX_GET_NATIVE_HANDLE(object, Object, handle_info);
-  return jerry_create_number(object->Value());
+  JERRYXX_GET_NATIVE_HANDLE(object, MCP3208, handle_info);
+  int16_t value;
+  object->Value(value);
+  return jerry_create_number(value);
 }
 
 
@@ -241,12 +252,12 @@ JERRYXX_FUN(get_value_fn) {
  */
 jerry_value_t module_MCP3X0X_init() {
   /* ADCChannel class */
-  jerry_value_t ctor = jerry_create_external_function(ctor_fn);
+  jerry_value_t ctor = jerry_create_external_function(ctor_MCP3208_fn);
   jerry_value_t prototype = jerry_create_object();
   jerryxx_set_property(ctor, "prototype", prototype);
   jerryxx_set_property_function(prototype, MSTR_MCP3X0X_GET_CHANNEL, get_channel_fn);
   jerryxx_set_property_function(prototype, MSTR_MCP3X0X_GET_VALUE,   get_value_fn);
-  jerry_release_value(gc_prototype);
+  jerry_release_value(prototype);
 
   /* ADCChannel module exports */
   jerry_value_t exports = jerry_create_object();

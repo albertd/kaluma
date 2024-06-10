@@ -35,10 +35,6 @@
 #include "system.h"
 
 static const char keyword_bus[]         = "bus";
-static const char keyword_sck[]         = "sck";
-static const char keyword_mosi[]        = "mosi";
-static const char keyword_miso[]        = "miso";
-static const char keyword_baudrate[]    = "baudrate";
 static const char keyword_cmd_select[]  = "cmd";
 static const char keyword_chip_select[] = "cs";
 static const char keyword_reset[]       = "reset";
@@ -238,37 +234,19 @@ uint16_t gc_prim_16bit_setup(gc_handle_t* handle, jerry_value_t options) {
   chip_select    = (uint8_t) jerryxx_get_property_number(options, keyword_chip_select, 9);
   uint8_t reset  = (uint8_t) jerryxx_get_property_number(options, keyword_reset, 0);
 
-  km_spi_pins_t def_pins = km_spi_get_default_pins(spi_bus);
-
-  km_spi_pins_t pins = {
-      .miso = (uint8_t) jerryxx_get_property_number(options, keyword_miso, def_pins.miso),
-      .mosi = (uint8_t) jerryxx_get_property_number(options, keyword_mosi, def_pins.mosi),
-      .sck  = (uint8_t) jerryxx_get_property_number(options, keyword_sck, def_pins.sck),
-  };
-
-  uint32_t baudrate = (uint32_t) jerryxx_get_property_number(options, keyword_baudrate, 60000000);
-
   km_gpio_set_io_mode(chip_select, KM_GPIO_IO_MODE_OUTPUT);
   km_gpio_set_io_mode(command_select, KM_GPIO_IO_MODE_OUTPUT);
   km_gpio_write (chip_select, 1);
   km_gpio_write (command_select, 1);
 
-  // initialize the bus
-  int ret = km_spi_setup(spi_bus, KM_SPI_MODE_0, baudrate, KM_SPI_BITORDER_MSB, pins, false);
-  if (ret < 0) {
-    printf("Could not open the SPI bus. Error %d\n", ret);
-  } 
-  else {
-    if (reset != 0) {
-      km_gpio_set_io_mode(reset, KM_GPIO_IO_MODE_OUTPUT);
-      km_gpio_write (reset, 0);
-      km_delay(10); // Sleep for 10 ms, so the dispay observes the reset..
-      km_gpio_write (reset, 1);
-      km_delay(5);
-    }
-    // km_set_spi_baudrate(spi_bus, baudrate);
-    gc_initialize_display();
+  if (reset != 0) {
+    km_gpio_set_io_mode(reset, KM_GPIO_IO_MODE_OUTPUT);
+    km_gpio_write (reset, 0);
+    km_delay(10); // Sleep for 10 ms, so the dispay observes the reset..
+    km_gpio_write (reset, 1);
+    km_delay(5);
   }
+  gc_initialize_display();
 
   // allocate buffer, no buffer or callback needed, we go to the hardware directly!
   return (0);

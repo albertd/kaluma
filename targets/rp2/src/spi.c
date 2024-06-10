@@ -158,6 +158,7 @@ int km_spi_setup(uint8_t bus, km_spi_mode_t mode, uint32_t baudrate,
   }
   if (miso_pullup) {
     gpio_pull_up(pins.miso);
+    gpio_pull_up(pins.mosi);
   }
   __spi_status[bus].enabled = true;
   return 0;

@@ -17,38 +17,6 @@ extern "C" {
 
 }
 
-static void InitializeBus (
-    const uint8_t bus,
-    const uint8_t mode,
-    const bool msb_order,
-    const uint32_t speed,
-    const uint8_t bitsPerWord,
-    const uint8_t clk,
-    const uint8_t mosi,
-    const uint8_t miso) {
-
-    km_spi_mode_t converted;
-    km_spi_pins_t pins;
-    pins.miso = miso;
-    pins.mosi = mosi;
-    pins.sck  = clk;
-
-    switch (mode) {
-        case 0: converted = KM_SPI_MODE_0; break;
-        case 1: converted = KM_SPI_MODE_1; break;
-        case 2: converted = KM_SPI_MODE_2; break;
-        case 3: converted = KM_SPI_MODE_3; break;
-    }
- 
-    km_spi_setup(
-        bus, 
-        converted, 
-        speed, 
-        (msb_order ? KM_SPI_BITORDER_MSB : KM_SPI_BITORDER_LSB),
-        pins,
-        false);
-}
- 
 class MCP23X17
 {
 public:
@@ -145,8 +113,6 @@ private:
         inline void Reset() {
            WriteRegister(IODIRA,   0xA5);
            WriteRegister(IODIRB,   0x5A);
-           WriteRegister(PORTA,    0x00);
-           WriteRegister(PORTB,    0x00);
            WriteRegister(GPINTENA, 0x00);
            WriteRegister(GPINTENB, 0x00);
            WriteRegister(IPOLA,    0x00);
@@ -233,7 +199,7 @@ private:
 
             // Send out and receive the requested bytes...
             km_gpio_write(_ce, KM_GPIO_LOW);
-            km_micro_delay(100);
+            km_micro_delay(200);
             km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
             km_gpio_write(_ce, KM_GPIO_HIGH);
  
@@ -244,7 +210,7 @@ private:
 
             // Send out and receive the requested bytes...
             km_gpio_write(_ce, KM_GPIO_LOW);
-            km_micro_delay(100);
+            km_micro_delay(200);
             km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
             km_gpio_write(_ce, KM_GPIO_HIGH);
         }
@@ -334,11 +300,15 @@ public:
         printf("\nGPINTENB: %02X", _device.Dump(Device::GPINTENB));
         printf("\nINTCONA:  %02X", _device.Dump(Device::INTCONA));
         printf("\nINTCONB:  %02X", _device.Dump(Device::INTCONB));
+        printf("\nIOCON:    %02X", _device.Dump(Device::IOCON));
+        printf("\nGPPUA:    %02X", _device.Dump(Device::GPPUA));
+        printf("\nGPPUB:    %02X", _device.Dump(Device::GPPUB));
+        printf("\nOLATA:    %02X", _device.Dump(Device::OLATA));
+        printf("\nOLATB:    %02X", _device.Dump(Device::OLATB));
         printf("\nGPIOA:    %02X", _device.Dump(Device::GPIOA));
         printf("\nGPIOB:    %02X", _device.Dump(Device::GPIOB));
         printf("\nINTFA:    %02X", _device.Dump(Device::INTFA));
         printf("\nINTFB:    %02X", _device.Dump(Device::INTFB));
-        printf("\nIOCON:    %02X", _device.Dump(Device::IOCON));
         printf("\n===================");
     }
     bool Get() const {
@@ -445,7 +415,7 @@ JERRYXX_FUN(ctor_fn) {
   JERRYXX_GET_ARG_STRING_AS_CHAR(5, text);
 
   if ((base < 16) && (bits <= (16 - base))) {
-      base = (base | (bits << 4));
+      base = (base | ((bits-1) << 4));
       MCP23X17::trigger_mode trigger;
       bool output;
  

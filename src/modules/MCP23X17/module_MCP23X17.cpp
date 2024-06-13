@@ -143,14 +143,10 @@ private:
             }
         }
         inline uint8_t Get(const port which) const {
-            uint8_t mask = ~(ReadRegister(which == PORTA ? IODIRA : IODIRB));
-            mask &= ReadRegister(which == PORTA ? IPOLA : IPOLB);
-            return (ReadRegister(which == PORTA ? GPIOA : GPIOB) ^ mask);
+            return (ReadRegister(which == PORTA ? GPIOA : GPIOB));
         }
         inline void Set(const port which, const uint8_t value) {
-            uint8_t mask = ~(ReadRegister(which == PORTA ? IODIRA : IODIRB));
-            mask &= ReadRegister(which == PORTA ? IPOLA : IPOLB);
-            WriteRegister(which == PORTA ? GPIOA : GPIOB, value ^ mask);
+            WriteRegister(which == PORTA ? GPIOA : GPIOB, value);
         }
         inline void Set (const uint16_t value) {
             Set (PORTA, (value & 0xFF));
@@ -349,6 +345,7 @@ public:
         uint8_t offset = (_bits & 0x7);
         uint8_t mask = static_cast<uint8_t>((_max << offset) & 0xFF);
 
+
         uint16_t newValue = (value & _max);
         newValue = newValue << offset;
 
@@ -491,6 +488,7 @@ JERRYXX_FUN(set_value_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "value");
   JERRYXX_GET_NATIVE_HANDLE(object, MCP23X17, handle_info);
   uint16_t value = (uint16_t)JERRYXX_GET_ARG_NUMBER(0);
+  printf("Got value: [%d]\n", value);
   return jerry_create_number(object->Write(value));
 }
 

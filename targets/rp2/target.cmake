@@ -32,6 +32,7 @@ if(NOT MODULES)
     graphics
     MCP23X17
     MCP3X0X
+    touch
     at
     storage
     wifi

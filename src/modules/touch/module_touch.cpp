@@ -16,9 +16,6 @@ extern "C" {
 }
 
 class Touch {
-private:
-    const uint16_t ReadDelay = 10;
-
 public:
     Touch() = delete;
     Touch(Touch&&) = delete;
@@ -31,7 +28,6 @@ public:
         , _ce(ce)
         , _irq(irq)
         , _delay(inhibition)
-        , _slots(0)
         , _lastAquire(0)
         , _pressed(false)
         , _report(report) {
@@ -65,78 +61,77 @@ private:
         if (_pressed == true) {
             uint64_t now = millis();
             if (now > _lastAquire) {
-                GetTouch();
+                _lastAquire = now + _delay;
 
-                _lastAquire = now + ReadDelay;
-
-                if (km_gpio_read(_irq) == 0) {
-                    if (_slots != 0) {
-                        --_slots;
-                    }
-                    else {
-                        _slots = _delay / ReadDelay;
-                        Report(_Xpos, _Ypos, _Zpos);
-                    }
-                }
-                else {
-                    GetTouch();
+                if ( (GetTouch() == false) || (km_gpio_read(_irq) != 0) ) {
                     _pressed = false;
                 }
+                Report();
             }
         }
         else if (km_gpio_read(_irq) == 0)  {
-            uint64_t now = millis();
             _pressed = true;
-            _lastAquire = now + ReadDelay;
-            _slots = _delay / ReadDelay;
+            _lastAquire = millis() + _delay;
 
-            GetTouch();
-            Report(_Xpos, _Ypos, _Zpos);
+            if (GetTouch() != false) {
+                Report();
+            }
         }
     }
-    void Report(const uint16_t X, const uint16_t Y, const uint16_t Z) {
+    void Report() {
         if (_report != JERRY_TYPE_UNDEFINED) {
-            jerry_value_t Xpos = jerry_create_number(X);
-            jerry_value_t Ypos = jerry_create_number(Y);
-            jerry_value_t Zpos = jerry_create_number(Z);
-
             jerry_value_t this_val = jerry_create_undefined();
-            jerry_value_t args_p[3] = { Xpos, Ypos, Zpos };
-            jerry_call_function(_report, this_val, args_p, 3);
-            jerry_release_value(Xpos);
-            jerry_release_value(Ypos);
-            jerry_release_value(Zpos);
+            if (_pressed == false) {
+                jerry_call_function(_report, this_val, NULL, 0);
+            }
+            else {
+                jerry_value_t Xpos = jerry_create_number(_Xpos);
+                jerry_value_t Ypos = jerry_create_number(_Ypos);
+                jerry_value_t Zpos = jerry_create_number(_Zpos);
+
+                jerry_value_t args_p[3] = { Xpos, Ypos, Zpos };
+                jerry_call_function(_report, this_val, args_p, 3);
+                jerry_release_value(Xpos);
+                jerry_release_value(Ypos);
+                jerry_release_value(Zpos);
+            }
             jerry_release_value(this_val);
         }
     }
 
 private:
-   void GetTouch() {
-        _Zpos = 0;
-
+   bool GetTouch() {
         // Send out and receive the requested bytes...
         km_gpio_write(_ce, KM_GPIO_LOW);
         km_micro_delay(2);
 
         uint8_t data[2];
 
-        data[0] = 0x91;
-
-        // Write the control word, so the conversion is triggered
+        data[0] = 0xB1;
         km_spi_send(_bus, data, 1, 1000);
         km_micro_delay(5);
-        km_spi_recv(_bus, 0, data, 2, 1000);
+
+        data[0] = 0x00;
+        data[1] = 0x91;
+        km_spi_sendrecv(_bus, data, data, 2, 1000); 
+        km_micro_delay(5);
+        _Zpos = data[0];
+        _Zpos = (_Zpos << 4) | (((data[1]) >> 4) & 0xF);
+
+        data[0] = 0x00;
+        data[1] = 0xD0;
+        km_spi_sendrecv(_bus, data, data, 2, 1000); 
+        km_micro_delay(5);
         _Xpos = data[0];
         _Xpos = (_Xpos << 4) | (((data[1]) >> 4) & 0xF);
 
-        data[0] = 0xD0;
-        km_spi_send(_bus, data, 1, 1000);
-        km_micro_delay(5);
         km_spi_recv(_bus, 0, data, 2, 1000);
         _Ypos = data[0];
         _Ypos = (_Ypos << 4) | (((data[1]) >> 4) & 0xF);
 
         km_gpio_write(_ce, KM_GPIO_HIGH);
+
+        return (_Zpos >= 5);
     }
     uint64_t millis() {
         return (km_gettime());

@@ -41,7 +41,6 @@
 #include "tty.h"
 #include "tusb.h"
 #include "uart.h"
-#include "module_touch.h"
 #ifdef PICO_CYW43
 #include "module_pico_cyw43.h"
 #include <pico/cyw43_arch.h>
@@ -145,5 +144,4 @@ void km_custom_infinite_loop() {
 #ifdef PICO_CYW43
   km_cyw43_infinite_loop();
 #endif
-  km_touch_infinite_loop();
 }

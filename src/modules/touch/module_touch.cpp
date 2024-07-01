@@ -16,6 +16,9 @@ extern "C" {
 }
 
 class Touch {
+private:
+    const uint16_t ReadDelay = 10;
+
 public:
     Touch() = delete;
     Touch(Touch&&) = delete;
@@ -28,12 +31,13 @@ public:
         , _ce(ce)
         , _irq(irq)
         , _delay(inhibition)
+        , _slots(0)
         , _lastAquire(0)
         , _pressed(false)
         , _report(report) {
         km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
-        km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT);
-        km_gpio_write(_ce, 1);
+        km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT_PULLUP);
+        km_gpio_write(_ce, KM_GPIO_HIGH);
         _theTouch = this;
     }
     ~Touch() {
@@ -58,45 +62,56 @@ public:
 
 private:
     void Process() {
-        if (km_gpio_read(_irq) != 0)  {
-            if (_pressed == true) {
-                uint64_t now = millis();
-                if (now > _lastAquire) {
-                    Report(0,0,0);
+        if (_pressed == true) {
+            uint64_t now = millis();
+            if (now > _lastAquire) {
+                GetTouch();
+
+                _lastAquire = now + ReadDelay;
+
+                if (km_gpio_read(_irq) == 0) {
+                    if (_slots != 0) {
+                        --_slots;
+                    }
+                    else {
+                        _slots = _delay / ReadDelay;
+                        Report(_Xpos, _Ypos, _Zpos);
+                    }
+                }
+                else {
+                    GetTouch();
                     _pressed = false;
                 }
             }
         }
-        else {
+        else if (km_gpio_read(_irq) == 0)  {
             uint64_t now = millis();
+            _pressed = true;
+            _lastAquire = now + ReadDelay;
+            _slots = _delay / ReadDelay;
 
-            if ((_pressed == false) || (now > _lastAquire)) {
-                _lastAquire = now + _delay;
-                _pressed = true;
-                GetTouch();
-                Report(_Xpos, _Ypos, _Zpos);
-            }
+            GetTouch();
+            Report(_Xpos, _Ypos, _Zpos);
         }
     }
-
-
     void Report(const uint16_t X, const uint16_t Y, const uint16_t Z) {
-        if (_report == JERRY_TYPE_FUNCTION) {
-            jerry_value_t obj = jerry_create_object();
-            jerryxx_set_property_number(obj, MSTR_TOUCH_X_POS, X);
-            jerryxx_set_property_number(obj, MSTR_TOUCH_Y_POS, Y);
-            jerryxx_set_property_number(obj, MSTR_TOUCH_Z_POS, Z);
+        if (_report != JERRY_TYPE_UNDEFINED) {
+            jerry_value_t Xpos = jerry_create_number(X);
+            jerry_value_t Ypos = jerry_create_number(Y);
+            jerry_value_t Zpos = jerry_create_number(Z);
 
             jerry_value_t this_val = jerry_create_undefined();
-            jerry_value_t args_p[1] = { obj };
-            jerry_call_function(_report, this_val, args_p, 1);
-            jerry_release_value(obj);
+            jerry_value_t args_p[3] = { Xpos, Ypos, Zpos };
+            jerry_call_function(_report, this_val, args_p, 3);
+            jerry_release_value(Xpos);
+            jerry_release_value(Ypos);
+            jerry_release_value(Zpos);
             jerry_release_value(this_val);
         }
     }
 
 private:
-   bool GetTouch() {
+   void GetTouch() {
         _Zpos = 0;
 
         // Send out and receive the requested bytes...
@@ -109,21 +124,19 @@ private:
 
         // Write the control word, so the conversion is triggered
         km_spi_send(_bus, data, 1, 1000);
-        km_micro_delay(10);
+        km_micro_delay(5);
         km_spi_recv(_bus, 0, data, 2, 1000);
         _Xpos = data[0];
-        _Xpos = (_Xpos << 4) | ((data[1]) >> 4) & 0xF;
+        _Xpos = (_Xpos << 4) | (((data[1]) >> 4) & 0xF);
 
         data[0] = 0xD0;
         km_spi_send(_bus, data, 1, 1000);
-        km_micro_delay(10);
+        km_micro_delay(5);
         km_spi_recv(_bus, 0, data, 2, 1000);
         _Ypos = data[0];
-        _Ypos = (_Ypos << 4) | ((data[1]) >> 4) & 0xF;
+        _Ypos = (_Ypos << 4) | (((data[1]) >> 4) & 0xF);
 
         km_gpio_write(_ce, KM_GPIO_HIGH);
-
-        return (true);
     }
     uint64_t millis() {
         return (km_gettime());
@@ -134,7 +147,9 @@ private:
     uint8_t _ce;
     uint8_t _irq;
     uint16_t _delay;
+    uint16_t _slots;
     uint64_t _lastAquire;
+    uint64_t _started;
     uint8_t _pressed;
     uint16_t _Xpos;
     uint16_t _Ypos;
@@ -222,6 +237,6 @@ jerry_value_t module_touch_init() {
 /**
  * Loop touch module
  */
-void km_touch_infinite_loop() {
+void km_io_touch_run() {
     Touch::Loop();    
 }

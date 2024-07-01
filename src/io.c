@@ -30,6 +30,8 @@
 #include "tty.h"
 #include "uart.h"
 
+#include "kaluma_modules.h"
+
 km_io_loop_t loop;
 
 /* forward declarations */
@@ -40,6 +42,7 @@ static void km_io_watch_run();
 static void km_io_uart_run();
 static void km_io_idle_run();
 static void km_io_idle_run();
+
 
 /* general handle functions */
 
@@ -114,6 +117,10 @@ void km_io_run(bool infinite) {
     km_io_idle_run();
     km_io_handle_closing();
     km_custom_infinite_loop();
+
+    #ifdef MODULE_TOUCH_SELECTED
+    km_io_touch_run();
+    #endif
 
     // quite if there no IO handles
     if (!infinite) {

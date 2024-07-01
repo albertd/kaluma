@@ -22,4 +22,4 @@
 #include "jerryscript.h"
 
 jerry_value_t module_touch_init();
-void km_touch_infinite_loop();
+void km_io_touch_run();

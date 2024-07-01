@@ -63,6 +63,7 @@ int km_gpio_irq_attach(uint8_t pin, uint8_t events);
 int km_gpio_irq_detach(uint8_t pin);
 void km_gpio_irq_enable();
 void km_gpio_irq_disable();
+void km_gpio_overview();
 
 #ifdef __cplusplus
 }

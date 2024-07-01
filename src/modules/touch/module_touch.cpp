@@ -32,7 +32,7 @@ public:
         , _pressed(false)
         , _report(report) {
         km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
-        km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT_PULLUP);
+        km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT);
         km_gpio_write(_ce, KM_GPIO_HIGH);
         _theTouch = this;
     }

@@ -152,9 +152,9 @@ static const char* km_gpio_function(const uint8_t pin) {
 
 static void show_pin_details(const uint8_t pin) {
     const char* pullUp = (gpio_is_pulled_up(pin) ? " up " : gpio_is_pulled_down(pin) ? "down" : "    ");
-    const char* direction = (gpio_get_dir(pin) == 1 ? "out" : "in ");
-    const char* value = gpio_get(pin) ? "true " : "false";
-    printf("Pin: [%02d], Value: [%s], Mode: [%s], Pull: [%s] Dir: [%s]\n\r", pin, value, km_gpio_function(pin), pullUp, direction);
+    const char* direction = (gpio_get_dir(pin) == 1 ? "[out]," : "[in], ");
+    const char* value = gpio_get(pin) ? "high," : "low, ";
+    printf("GPIO%02d=%s Dir: %s Mode: [%s], Pull: [%s] \n\r", pin, value, direction, km_gpio_function(pin), pullUp);
 }
 
 void km_gpio_overview () {

@@ -158,7 +158,7 @@ static void handle_freecb(void *handle) { delete (Touch*) handle; }
 static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb};
 
 /* ************************************************************************** */
-/*                              MCP3208 CLASS                             */
+/*                                 TOUCH CLASS                                */
 /* ************************************************************************** */
 
 /**

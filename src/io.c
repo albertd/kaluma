@@ -30,6 +30,8 @@
 #include "tty.h"
 #include "uart.h"
 
+#include "kaluma_modules.h"
+
 km_io_loop_t loop;
 
 /* forward declarations */
@@ -114,6 +116,10 @@ void km_io_run(bool infinite) {
     km_io_idle_run();
     km_io_handle_closing();
     km_custom_infinite_loop();
+
+    #ifdef MODULE_XPT2046_SELECTED
+    km_io_xpt2046_run();
+    #endif
 
     // quite if there no IO handles
     if (!infinite) {

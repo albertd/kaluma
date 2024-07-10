@@ -45,6 +45,7 @@ if(NOT MODULES)
     vfs_lfs
     vfs_fat
     sdcard
+    mcp23X17
     wdt
     startup)
 endif()

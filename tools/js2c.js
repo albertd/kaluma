@@ -70,6 +70,7 @@ function identifyModules() {
       modules.push({
         path: path.dirname(argv.bundle),
         name: "bundle",
+        filename: path.basename(argv.bundle, '.js'),
         nameUC: "BUNDLE",
         js: true,
         native: false,
@@ -83,9 +84,9 @@ function identifyModules() {
 function generateSnapshots() {
   modules.forEach((mod) => {
     if (mod.js) {
-      const src = path.join(mod.path, mod.name + ".js");
-      const wrapped = path.join(mod.path, mod.name + ".wrapped");
-      const snapshot = path.join(mod.path, mod.name + ".snapshot");
+      const src = path.join(mod.path, (mod.filename || mod.name) + ".js");
+      const wrapped = path.join(mod.path, (mod.filename || mod.name) + ".wrapped");
+      const snapshot = path.join(mod.path, (mod.filename || mod.name) + ".snapshot");
       mod.wrapped = wrapped;
       mod.snapshot = snapshot;
       createWrapper(src, wrapped);

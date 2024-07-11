@@ -63,6 +63,21 @@ function identifyModules() {
       });
     }
   }
+
+  if (argv.bundle) {
+    if (fs.existsSync(argv.bundle)) {
+      console.log("bundle found: " + argv.bundle);
+      modules.push({
+        path: path.dirname(argv.bundle),
+        name: "bundle",
+        nameUC: "BUNDLE",
+        js: true,
+        native: false,
+        require: false,
+        size: 0,
+      });
+    }
+  }
 }
 
 function generateSnapshots() {

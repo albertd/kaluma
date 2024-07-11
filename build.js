@@ -35,6 +35,7 @@ function build() {
   if (argv.target) params.push(`-DTARGET=${argv.target}`);
   if (argv.board) params.push(`-DBOARD=${argv.board}`);
   if (argv.modules) params.push(`-DMODULES=${argv.modules}`);
+  if (argv.bundle) params.push(`-DBUNDLE=${argv.bundle}`);
 
   // build everything
   const cores = os.cpus().length;

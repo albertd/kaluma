@@ -1364,6 +1364,11 @@ static void run_board_module() {
   jerry_value_t bundle_js = jerry_exec_snapshot(
       (const uint32_t *)module_bundle_code, module_bundle_size, 0,
       JERRY_SNAPSHOT_EXEC_ALLOW_STATIC);
+  ret_val = jerry_call_function(bundle_js, this_val, args, 3);
+  if (jerry_value_is_error(ret_val)) {
+    // print error
+    jerryxx_print_error(ret_val, true);
+  }
   jerry_release_value(bundle_js);
 #endif
   jerry_release_value(board);

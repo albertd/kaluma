@@ -40,8 +40,11 @@ static int __check_gpio(uint8_t pin) {
 
 void km_gpio_init() {
   for (uint i = 0; i < NUM_BANK0_GPIOS; i++) {
-    gpio_init(i);
-    gpio_set_pulls(i, false, false);
+    // Do not touch 6
+    if (i != 6) {
+        gpio_init(i);
+        gpio_set_pulls(i, false, false);
+    }
   }
 #ifdef WIFI_EN_GPIO
   gpio_set_dir(WIFI_EN_GPIO, true);  // Set OUTPUT

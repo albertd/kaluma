@@ -266,8 +266,9 @@ public:
     MCP23X17& operator=(const MCP23X17&) = delete;
 
     // bit -> Lowest Nible is the bit 0 => Port A bit 0, 8 => Port B Bit 0, highest nible is the number of bit to occupy (-1).
-    MCP23X17(const uint8_t bus,const uint8_t ce, const uint8_t address, const uint8_t bit, trigger_mode trigger, const uint8_t character, const bool output)
+    MCP23X17(const uint8_t bus,const uint8_t ce, const uint8_t address, const uint8_t bit, trigger_mode trigger, const uint8_t character, const bool output, const bool swap = false)
         : _device(bus, ce, address)
+        , _swap(swap)
         , _bits(bit)
         , _max((1 << (((bit >> 4) & 0xF) + 1)) - 1) {
 
@@ -280,6 +281,7 @@ public:
             pin++;
             mask = (mask >> 1);
         }
+        printf ("Swap: %s\n\r", _swap ? "true" : "false");
     }
     ~MCP23X17() = default;
 
@@ -317,7 +319,7 @@ public:
         return (result);
     }
     void Set(const bool value) {
-        Write(value ? 1 : 0);
+        Write(_swap ? (value ? 0 : 1) : (value ? 1 : 0));
     }
     uint16_t Read(uint16_t& value) const {
         uint8_t offset = (_bits & 0x7);
@@ -338,6 +340,13 @@ public:
         }
 
         value = (part & _max);
+
+        if (_swap == true) {
+            uint16_t bitMap = ((1 << bits) -1);
+            printf("Incoming: [%02X]/[%02X]:[%02X] ", value, bitMap, ~value); 
+            value = ((~value) & bitMap);
+            printf("To: [%02X]\n\r", value); 
+        }
 
         return (0);
     }
@@ -381,8 +390,9 @@ public:
 
 private:
     Device _device;
-    uint16_t _max;
+    bool _swap;
     const uint8_t _bits;
+    uint16_t _max;
 };
 
 static void handle_freecb(void *handle) { free(handle); }
@@ -402,6 +412,7 @@ JERRYXX_FUN(ctor_fn) {
   JERRYXX_CHECK_ARG_NUMBER(3, "base");
   JERRYXX_CHECK_ARG_NUMBER(4, "bits");
   JERRYXX_CHECK_ARG_STRING(5, "type");
+  JERRYXX_CHECK_ARG_BOOLEAN(6, "swap");
 
   // read parameters
   uint8_t bus     = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
@@ -409,6 +420,7 @@ JERRYXX_FUN(ctor_fn) {
   uint8_t address = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   uint8_t base    = (uint8_t)JERRYXX_GET_ARG_NUMBER(3);
   uint8_t bits    = (uint8_t)JERRYXX_GET_ARG_NUMBER(4);
+  bool    swap    = JERRYXX_GET_ARG_BOOLEAN(6);
   JERRYXX_GET_ARG_STRING_AS_CHAR(5, text);
 
   if ((base < 16) && (bits <= (16 - base))) {
@@ -442,7 +454,7 @@ JERRYXX_FUN(ctor_fn) {
       }
 
       // set native handle
-      MCP23X17* object = new MCP23X17(bus, ce, address, base, trigger, 0, output);
+      MCP23X17* object = new MCP23X17(bus, ce, address, base, trigger, 0, output, swap);
       jerry_set_object_native_pointer(this_val, object, &handle_info);
   }
 

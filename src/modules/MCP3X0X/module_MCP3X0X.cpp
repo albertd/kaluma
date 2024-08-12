@@ -75,9 +75,9 @@ public:
     // Value determination of this element
     uint16_t Value(int16_t& value) const {
         int16_t result = Value(_channel & 0x07, ((_channel & 0x08) != 0));
-        result = (_inverse ? -result : result);
+        value = result;
+        // value = ToRange(_inverse ? -result : result);
 
-        value = ToRange(result);
 
         return (0);
     }
@@ -196,7 +196,9 @@ JERRYXX_FUN(get_value_fn) {
   JERRYXX_GET_NATIVE_HANDLE(object, MCP3208, handle_info);
   int16_t value;
   object->Value(value);
-  return jerry_create_number(value);
+  double converted = value;
+
+  return jerry_create_number(converted / MCP3208::Range);
 }
 
 /**

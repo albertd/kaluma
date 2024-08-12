@@ -50,10 +50,11 @@ public:
     MCP3X0XType<BITS,CHANNELBITS>& operator=(MCP3X0XType<BITS,CHANNELBITS>&&) = delete;
     MCP3X0XType<BITS,CHANNELBITS>& operator=(const MCP3X0XType<BITS,CHANNELBITS>&) = delete;
 
-    MCP3X0XType(const uint8_t bus, const uint8_t ce, const mode channel, const int16_t min=0, const int16_t max=Range)
+    MCP3X0XType(const uint8_t bus, const uint8_t ce, const mode channel, const uint8_t average, const int16_t min=0, const int16_t max=Range)
         : _bus(bus)
         , _ce(ce)
         , _channel(channel)
+        , _average(average == 0 ? 1 : average)
         , _inverse(_min > _max)
         , _min(_inverse ? max : min)
         , _max(_inverse ? min : max) {
@@ -89,39 +90,51 @@ public:
 private:
     uint16_t Value(const uint8_t channel, const bool differential) const
     {
-        uint16_t result = 0;
+        uint32_t sum = 0;
 
         if (channel < Channels) {
 
+            uint8_t request;
             uint8_t buffer[3];
+            uint16_t results[_average];
+            uint8_t index = 0;
 
             if (CHANNELBITS == 1) {
-                    buffer[0] = 0x80 | (differential ? 0x00 : 0x40) | ((channel & 0x01) << 5) | 0x10;
+                request = 0x80 | (differential ? 0x00 : 0x40) | ((channel & 0x01) << 5) | 0x10;
             }
             else {
-                    buffer[0] = 0x40 | (differential ? 0x00 : 0x20) | ((channel & 0x07) << 2);
+                request = 0x40 | (differential ? 0x00 : 0x20) | ((channel & 0x07) << 2);
             }
-            buffer[1] = 0xFF;
-            buffer[2] = 0xFF;
 
             // Send out and receive the requested bytes...
             km_gpio_write(_ce, KM_GPIO_LOW);
             km_micro_delay(100);
-            km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
-            km_gpio_write(_ce, KM_GPIO_HIGH);
 
-            if ((CHANNELBITS == 1) && (BITS == 10)) {
-                    result = ((buffer[0] & 0x02)  << 8) | (buffer[1] & 0xFF);
+            while (index < _average) {
+
+                buffer[0] = request;
+                buffer[1] = 0xFF;
+                buffer[2] = 0xFF;
+
+                km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
+
+                if ((CHANNELBITS == 1) && (BITS == 10)) {
+                    results[index] = ((buffer[0] & 0x02)  << 8) | (buffer[1] & 0xFF);
+                }
+                else if (CHANNELBITS == 1) {
+                    results[index] = ((buffer[0] & 0x02) << 10) | (buffer[1] << 2) | ((buffer[2] & 0xC0) >> 6);
+                }
+                else {
+                    results[index] = (((buffer[1] & 0xFF) << 8) | buffer[2]) >> (16 - BITS);
+                }
+                sum += results[index];
+                index++;
             }
-            else if (CHANNELBITS == 1) {
-                    result = ((buffer[0] & 0x02) << 10) | (buffer[1] << 2) | ((buffer[2] & 0xC0) >> 6);
-            }
-            else {
-                    result = (((buffer[1] & 0xFF) << 8) | buffer[2]) >> (16 - BITS);
-            }
+            km_gpio_write(_ce, KM_GPIO_HIGH);
         }
 
-        return (result);
+        // Just calcuate the Average, for now, maybe later we make it more advanced :-)
+        return (static_cast<uint16_t>(sum / _average));
     }
     inline int16_t ToRange(const int16_t value) const
     {
@@ -140,6 +153,7 @@ private:
     const uint8_t _bus;
     const uint8_t _ce;
     mode          _channel;
+    uint8_t       _average;
     bool          _inverse;
     int16_t       _min;
     int16_t       _max;
@@ -167,15 +181,21 @@ JERRYXX_FUN(ctor_MCP3208_fn) {
   JERRYXX_CHECK_ARG_NUMBER(1, "ce");
   JERRYXX_CHECK_ARG_NUMBER(2, "channel");
   JERRYXX_CHECK_ARG_NUMBER(3, "differenial");
+  JERRYXX_CHECK_ARG_NUMBER(4, "average");
 
   // read parameters
   uint8_t bus  = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
   uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   uint8_t line = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   bool diffrential = (bool)JERRYXX_GET_ARG_NUMBER(3);
+  uint8_t average = 1;
+
+  if (JERRYXX_HAS_ARG(4)) {
+    average = (uint8_t)JERRYXX_GET_ARG_NUMBER(4);
+  }
 
   // set native handle
-  MCP3208* object = new MCP3208(bus, ce, MCP3208::ToChannel(line, diffrential));
+  MCP3208* object = new MCP3208(bus, ce, MCP3208::ToChannel(line, diffrential), average);
   jerry_set_object_native_pointer(this_val, object, &handle_info);
 
   return jerry_create_undefined();

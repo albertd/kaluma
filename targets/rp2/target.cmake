@@ -3,10 +3,7 @@
 ######################################
 
 # debug build?
-set(DEBUG 1)
-
-# optimization
-set(OPT -Og)
+set(DEBUG 0)
 
 # default board: pico-w
 if(NOT BOARD)
@@ -83,7 +80,7 @@ set(TARGET_HEAPSIZE 180)
 set(JERRY_TOOLCHAIN toolchain_mcu_cortexm0plus.cmake)
 
 set(CMAKE_SYSTEM_PROCESSOR cortex-m0plus)
-set(CMAKE_C_FLAGS "-march=armv6-m -mcpu=cortex-m0plus -mthumb ${OPT} -Wall -fdata-sections -ffunction-sections")
+set(CMAKE_C_FLAGS "-march=armv6-m -mcpu=cortex-m0plus -mthumb -Wall -fdata-sections -ffunction-sections")
 if(DEBUG EQUAL 1)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -gdwarf-2")
 endif()
@@ -95,6 +92,10 @@ set(CMAKE_C_COMPILER ${PREFIX}gcc)
 set(CMAKE_CXX_COMPILER ${PREFIX}g++)
 set(CMAKE_LINKER ${PREFIX}ld)
 set(CMAKE_OBJCOPY ${PREFIX}objcopy)
+
+if(BUNDLE)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBUNDLE_ENABLED=1")
+endif()
 
 set(TARGET_LIBS c nosys m
   pico_stdlib

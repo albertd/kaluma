@@ -45,22 +45,24 @@ int16_t gc_get_height(gc_handle_t *handle) { return handle->height; }
 /**
  * @brief  Make 16-color value from 5-6-5 bits RGB values
  */
-uint16_t gc_color16(gc_handle_t *handle, uint8_t r, uint8_t g, uint8_t b) {
-  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+gc_color gc_composit_color(gc_handle_t *handle, uint8_t r, uint8_t g, uint8_t b) {
+  // uint16_t varian :-)
+  // return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+  return (r << 16) | (g << 8) | b;
 }
 
 /**
  * @brief Clear screen
  * @param handle Graphic context handle
  */
-void gc_clear_screen(gc_handle_t *handle) { handle->fill_screen_cb(handle, 0); }
+void gc_clear_screen(gc_handle_t *handle) { handle->fill_screen_cb(handle, handle->fill_color); }
 
 /**
  * @brief Fill screen
  * @param handle Graphic context handle
  * @param color
  */
-void gc_fill_screen(gc_handle_t *handle, uint16_t color) {
+void gc_fill_screen(gc_handle_t *handle, gc_color  color) {
   handle->fill_screen_cb(handle, color);
 }
 
@@ -97,7 +99,7 @@ uint8_t gc_get_rotation(gc_handle_t *handle) { return handle->rotation; }
  * @param handle Graphic context handle
  * @param color
  */
-void gc_set_color(gc_handle_t *handle, uint16_t color) {
+void gc_set_color(gc_handle_t *handle, gc_color color) {
   handle->color = color;
 }
 
@@ -106,14 +108,14 @@ void gc_set_color(gc_handle_t *handle, uint16_t color) {
  * @param handle Graphic context handle
  * @return Current stroke color
  */
-uint16_t gc_get_color(gc_handle_t *handle) { return handle->color; }
+gc_color gc_get_color(gc_handle_t *handle) { return handle->color; }
 
 /**
  * @brief Set fill color
  * @param handle Graphic context handle
  * @param color
  */
-void gc_set_fill_color(gc_handle_t *handle, uint16_t color) {
+void gc_set_fill_color(gc_handle_t *handle, gc_color color) {
   handle->fill_color = color;
 }
 
@@ -122,7 +124,7 @@ void gc_set_fill_color(gc_handle_t *handle, uint16_t color) {
  * @param handle Graphic context handle
  * @return Current fill color
  */
-uint16_t gc_get_fill_color(gc_handle_t *handle) { return handle->fill_color; }
+gc_color gc_get_fill_color(gc_handle_t *handle) { return handle->fill_color; }
 
 /**
  * @brief Set pixel
@@ -131,7 +133,7 @@ uint16_t gc_get_fill_color(gc_handle_t *handle) { return handle->fill_color; }
  * @param y
  * @param color
  */
-void gc_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, uint16_t color) {
+void gc_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, gc_color color) {
   handle->set_pixel_cb(handle, x, y, color);
 }
 
@@ -142,8 +144,8 @@ void gc_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, uint16_t color) {
  * @param y
  * @return Color at (x, y) coordinate
  */
-uint16_t gc_get_pixel(gc_handle_t *handle, int16_t x, int16_t y) {
-  uint16_t color = 0;
+gc_color gc_get_pixel(gc_handle_t *handle, int16_t x, int16_t y) {
+  gc_color color = 0;
   handle->get_pixel_cb(handle, x, y, &color);
   return color;
 }
@@ -217,7 +219,7 @@ void gc_draw_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
  * @param  color       16-bit 5-6-5 Color to draw with
  */
 void gc_draw_circle_helper(gc_handle_t *handle, int16_t x, int16_t y, int16_t r,
-                           uint8_t cornername, uint16_t color) {
+                           uint8_t cornername, gc_color color) {
   int16_t f = 1 - r;
   int16_t ddF_x = 1;
   int16_t ddF_y = -2 * r;
@@ -346,7 +348,7 @@ void gc_fill_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
  * @param  color
  */
 void gc_fill_circle_helper(gc_handle_t *handle, int16_t x, int16_t y, int16_t r,
-                           uint8_t corners, int16_t delta, uint16_t color) {
+                           uint8_t corners, int16_t delta, gc_color color) {
   int16_t f = 1 - r;
   int16_t ddF_x = 1;
   int16_t ddF_y = -2 * r;
@@ -433,14 +435,14 @@ gc_font_t *gc_get_font(gc_handle_t *handle) { return handle->font; }
 /**
  * @brief
  */
-void gc_set_font_color(gc_handle_t *handle, uint16_t color) {
+void gc_set_font_color(gc_handle_t *handle, gc_color color) {
   handle->font_color = color;
 }
 
 /**
  * @brief
  */
-uint16_t gc_get_font_color(gc_handle_t *handle) { return handle->font_color; }
+gc_color gc_get_font_color(gc_handle_t *handle) { return handle->font_color; }
 
 /**
  * @brief
@@ -585,7 +587,7 @@ void gc_measure_text(gc_handle_t *handle, const char *text, uint16_t *w,
 static void gc_draw_bitmap_helper(gc_handle_t *handle, int16_t x, int16_t y,
                                   int16_t w, int16_t h, int16_t xx, int16_t yy,
                                   int8_t scale_x, int8_t scale_y, bool flip_x,
-                                  bool flip_y, uint16_t color) {
+                                  bool flip_y, gc_color color) {
   if (scale_x == 1 && scale_y == 1) {
     int16_t px = x + (flip_x ? w - xx : xx);
     int16_t py = y + (flip_y ? h - yy : yy);
@@ -598,8 +600,8 @@ static void gc_draw_bitmap_helper(gc_handle_t *handle, int16_t x, int16_t y,
 }
 
 void gc_draw_bitmap(gc_handle_t *handle, int16_t x, int16_t y, uint8_t *bitmap,
-                    int16_t w, int16_t h, uint8_t bpp, uint16_t color,
-                    bool transparent, uint16_t transparent_color,
+                    int16_t w, int16_t h, uint8_t bpp, gc_color color,
+                    bool transparent, gc_color transparent_color,
                     uint8_t scale_x, uint8_t scale_y, bool flip_x,
                     bool flip_y) {
   if ((x >= handle->width) || (y >= handle->height) ||

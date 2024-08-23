@@ -42,16 +42,17 @@
 #endif
 
 typedef struct gc_handle_s gc_handle_t;
+typedef uint32_t gc_color;
 
-typedef void (*gc_set_pixel_cb)(gc_handle_t *, int16_t, int16_t, uint16_t);
-typedef void (*gc_get_pixel_cb)(gc_handle_t *, int16_t, int16_t, uint16_t *);
+typedef void (*gc_set_pixel_cb)(gc_handle_t *, int16_t, int16_t, gc_color);
+typedef void (*gc_get_pixel_cb)(gc_handle_t *, int16_t, int16_t, gc_color*);
 typedef void (*gc_draw_hline_cb)(gc_handle_t *, int16_t, int16_t, int16_t,
-                                 uint16_t);
+                                 gc_color);
 typedef void (*gc_draw_vline_cb)(gc_handle_t *, int16_t, int16_t, int16_t,
-                                 uint16_t);
+                                 gc_color);
 typedef void (*gc_fill_rect_cb)(gc_handle_t *, int16_t, int16_t, int16_t,
-                                int16_t, uint16_t);
-typedef void (*gc_fill_screen_cb)(gc_handle_t *, uint16_t);
+                                int16_t, gc_color);
+typedef void (*gc_fill_screen_cb)(gc_handle_t *, gc_color);
 
 /**
  * Graphic context native handle
@@ -65,10 +66,10 @@ struct gc_handle_s {
   uint8_t bpp;
   uint8_t *buffer;
   uint16_t buffer_size;
-  uint16_t color;
-  uint16_t fill_color;
+  gc_color color;
+  gc_color fill_color;
   gc_font_t *font;
-  uint16_t font_color;
+  gc_color font_color;
   uint8_t font_scale_x;
   uint8_t font_scale_y;
   gc_set_pixel_cb set_pixel_cb;
@@ -85,44 +86,31 @@ struct gc_handle_s {
 
 // primitive functions
 void gc_prim_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                       uint16_t color);
+                       gc_color color);
 void gc_prim_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                       uint16_t *color);
+                       gc_color* color);
 void gc_prim_draw_vline(gc_handle_t *handle, int16_t x, int16_t y, int16_t h,
-                        uint16_t color);
+                        gc_color color);
 void gc_prim_draw_hline(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
-                        uint16_t color);
+                        gc_color color);
 void gc_prim_fill_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
-                       int16_t h, uint16_t color);
-void gc_prim_fill_screen(gc_handle_t *handle, uint16_t color);
-
-// primitive functions for 16bits color
-void gc_prim_16bit_set_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                             uint16_t color);
-void gc_prim_16bit_get_pixel(gc_handle_t *handle, int16_t x, int16_t y,
-                             uint16_t *color);
-void gc_prim_16bit_draw_fast_vline(gc_handle_t *handle, int16_t x, int16_t y,
-                                   int16_t h, uint16_t color);
-void gc_prim_16bit_draw_fast_hline(gc_handle_t *handle, int16_t x, int16_t y,
-                                   int16_t w, uint16_t color);
-void gc_prim_16bit_fill_rect(gc_handle_t *handle, int16_t x, int16_t y,
-                             int16_t w, int16_t h, uint16_t color);
-void gc_prim_16bit_fill_screen(gc_handle_t *handle, uint16_t color);
+                       int16_t h, gc_color color);
+void gc_prim_fill_screen(gc_handle_t *handle, gc_color color);
 
 // graphic device-neutral functions
 int16_t gc_get_width(gc_handle_t *handle);
 int16_t gc_get_height(gc_handle_t *handle);
-uint16_t gc_color16(gc_handle_t *handle, uint8_t r, uint8_t g, uint8_t b);
+gc_color gc_composit_color(gc_handle_t *handle, uint8_t r, uint8_t g, uint8_t b);
 void gc_clear_screen(gc_handle_t *handle);
-void gc_fill_screen(gc_handle_t *handle, uint16_t color);
+void gc_fill_screen(gc_handle_t *handle, gc_color clearColor);
 void gc_set_rotation(gc_handle_t *handle, uint8_t rotation);
 uint8_t gc_get_rotation(gc_handle_t *handle);
-void gc_set_color(gc_handle_t *handle, uint16_t color);
-uint16_t gc_get_color(gc_handle_t *handle);
-void gc_set_fill_color(gc_handle_t *handle, uint16_t color);
-uint16_t gc_get_fill_color(gc_handle_t *handle);
-void gc_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, uint16_t color);
-uint16_t gc_get_pixel(gc_handle_t *handle, int16_t x, int16_t y);
+void gc_set_color(gc_handle_t *handle, gc_color );
+gc_color gc_get_color(gc_handle_t *handle);
+void gc_set_fill_color(gc_handle_t *handle, gc_color color);
+gc_color gc_get_fill_color(gc_handle_t *handle);
+void gc_set_pixel(gc_handle_t *handle, int16_t x, int16_t y, gc_color color);
+gc_color gc_get_pixel(gc_handle_t *handle, int16_t x, int16_t y);
 void gc_draw_line(gc_handle_t *handle, int16_t x0, int16_t y0, int16_t x1,
                   int16_t y1);
 void gc_draw_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
@@ -135,8 +123,8 @@ void gc_fill_rect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
 void gc_fill_roundrect(gc_handle_t *handle, int16_t x, int16_t y, int16_t w,
                        int16_t h, int16_t r);
 void gc_fill_circle(gc_handle_t *handle, int16_t x, int16_t y, int16_t r);
-void gc_set_font_color(gc_handle_t *handle, uint16_t color);
-uint16_t gc_get_font_color(gc_handle_t *handle);
+void gc_set_font_color(gc_handle_t *handle, gc_color color);
+gc_color gc_get_font_color(gc_handle_t *handle);
 void gc_set_font(gc_handle_t *handle, gc_font_t *font);
 gc_font_t *gc_get_font(gc_handle_t *handle);
 void gc_set_font_scale(gc_handle_t *handle, uint8_t scale_x, uint8_t scale_y);
@@ -145,8 +133,8 @@ void gc_draw_text(gc_handle_t *handle, int16_t x, int16_t y, const char *text);
 void gc_measure_text(gc_handle_t *handle, const char *text, uint16_t *w,
                      uint16_t *h);
 void gc_draw_bitmap(gc_handle_t *handle, int16_t x, int16_t y, uint8_t *bitmap,
-                    int16_t w, int16_t h, uint8_t bpp, uint16_t color,
-                    bool transparent, uint16_t transparent_color,
+                    int16_t w, int16_t h, uint8_t bpp, gc_color color,
+                    bool transparent, gc_color transparent_color,
                     uint8_t scale_x, uint8_t scale_y, bool flip_x, bool flip_y);
 
 #endif /* __GC_H */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kaluma
+/* Copyright (c) 2019 Kaluma
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -18,28 +18,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#pragma once
+#include "jerryscript.h"
 
-#ifndef __SPI_MAGIC_STRINGS_H
-#define __SPI_MAGIC_STRINGS_H
-
-#define MSTR_SPI_SPI "SPI"
-#define MSTR_SPI_BUS "bus"
-#define MSTR_SPI_MODE "mode"
-#define MSTR_SPI_BAUDRATE "baudrate"
-#define MSTR_SPI_BITORDER "bitorder"
-#define MSTR_SPI_BITS "bits"
-#define MSTR_SPI_TRANSFER "transfer"
-#define MSTR_SPI_SEND "send"
-#define MSTR_SPI_RECV "recv"
-#define MSTR_SPI_CLOSE "close"
-#define MSTR_SPI_MODE0 "MODE_0"
-#define MSTR_SPI_MODE1 "MODE_1"
-#define MSTR_SPI_MODE2 "MODE_2"
-#define MSTR_SPI_MODE3 "MODE_3"
-#define MSTR_SPI_MSB "MSB"
-#define MSTR_SPI_LSB "LSB"
-#define MSTR_SPI_MISO "miso"
-#define MSTR_SPI_MOSI "mosi"
-#define MSTR_SPI_SCK "sck"
-#define MSTR_SPI_PULL "pull"
-#endif /* __SPI_MAGIC_STRINGS_H */
+jerry_value_t module_touch_init();
+void km_io_touch_run();

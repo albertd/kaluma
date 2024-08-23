@@ -25,8 +25,14 @@
 #include "runtime.h"
 #include "system.h"
 #include "tty.h"
+#include "hardware/gpio.h"
 
 int main(void) {
+  gpio_init(6);
+  gpio_set_function(6, GPIO_FUNC_SIO);
+  gpio_set_dir(6, true);
+  gpio_put(6, 1);
+  
   bool load = false;
   km_system_init();
   load = km_running_script_check();

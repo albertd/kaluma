@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kaluma
+/* Copyright (c) 2019 Kaluma
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,27 +19,14 @@
  * SOFTWARE.
  */
 
-#ifndef __SPI_MAGIC_STRINGS_H
-#define __SPI_MAGIC_STRINGS_H
+#ifndef __MCP23X17_MAGIC_STRINGS_H
+#define __MCP23X17_MAGIC_STRINGS_H
 
-#define MSTR_SPI_SPI "SPI"
-#define MSTR_SPI_BUS "bus"
-#define MSTR_SPI_MODE "mode"
-#define MSTR_SPI_BAUDRATE "baudrate"
-#define MSTR_SPI_BITORDER "bitorder"
-#define MSTR_SPI_BITS "bits"
-#define MSTR_SPI_TRANSFER "transfer"
-#define MSTR_SPI_SEND "send"
-#define MSTR_SPI_RECV "recv"
-#define MSTR_SPI_CLOSE "close"
-#define MSTR_SPI_MODE0 "MODE_0"
-#define MSTR_SPI_MODE1 "MODE_1"
-#define MSTR_SPI_MODE2 "MODE_2"
-#define MSTR_SPI_MODE3 "MODE_3"
-#define MSTR_SPI_MSB "MSB"
-#define MSTR_SPI_LSB "LSB"
-#define MSTR_SPI_MISO "miso"
-#define MSTR_SPI_MOSI "mosi"
-#define MSTR_SPI_SCK "sck"
-#define MSTR_SPI_PULL "pull"
-#endif /* __SPI_MAGIC_STRINGS_H */
+#define MSTR_MCP23X17_CONTEXT      "MCP23X17"
+#define MSTR_MCP23X17_SET_VALUE    "setValue"
+#define MSTR_MCP23X17_GET_VALUE    "getValue"
+#define MSTR_MCP23X17_DUMP         "dump"
+#define MSTR_MCP23X17_SET_REGISTER "setRegister"
+#define MSTR_MCP23X17_GET_REGISTER "getRegister"
+
+#endif /* __MCP23X17_MAGIC_STRINGS_H */

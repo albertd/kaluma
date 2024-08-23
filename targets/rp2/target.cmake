@@ -27,6 +27,7 @@ if(NOT MODULES)
     spi
     uart
     graphics
+    xpt2046
     at
     storage
     wifi

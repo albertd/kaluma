@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kaluma
+/* Copyright (c) 2019 Kaluma
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,54 +19,14 @@
  * SOFTWARE.
  */
 
-#ifndef __KM_GPIO_H
-#define __KM_GPIO_H
+#ifndef __XPT2046_MAGIC_STRINGS_H
+#define __XPT2046_MAGIC_STRINGS_H
 
-#include <stdbool.h>
-#include <stdint.h>
+#define MSTR_XPT2046_CONTEXT     "XPT2046"
+#define MSTR_XPT2046_GET_TOUCH   "getTouch"
+#define MSTR_XPT2046_X_POS       "X"
+#define MSTR_XPT2046_Y_POS       "Y"
+#define MSTR_XPT2046_Z_POS       "Z"
+#define MSTR_XPT2046_PRESSED     "press"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef enum {
-  KM_GPIO_IO_MODE_INPUT,
-  KM_GPIO_IO_MODE_OUTPUT,
-  KM_GPIO_IO_MODE_INPUT_PULLUP,
-  KM_GPIO_IO_MODE_INPUT_PULLDOWN,
-} km_gpio_io_mode_t;
-
-#define KM_GPIO_LOW 0
-#define KM_GPIO_HIGH 1
-
-#define KM_GPIO_PULL_UP 0
-#define KM_GPIO_PULL_DOWN 1
-
-typedef void (*km_gpio_irq_callback_t)(uint8_t pin, km_gpio_io_mode_t mode);
-
-/**
- * Initialize all GPIO on system boot
- */
-void km_gpio_init();
-
-/**
- * Cleanup all GPIO on soft reset
- */
-void km_gpio_cleanup();
-
-int km_gpio_set_io_mode(uint8_t pin, km_gpio_io_mode_t mode);
-int km_gpio_write(uint8_t pin, uint8_t value);
-int km_gpio_toggle(uint8_t pin);
-int km_gpio_read(uint8_t pin);
-void km_gpio_irq_set_callback(km_gpio_irq_callback_t cb);
-int km_gpio_irq_attach(uint8_t pin, uint8_t events);
-int km_gpio_irq_detach(uint8_t pin);
-void km_gpio_irq_enable();
-void km_gpio_irq_disable();
-void km_gpio_overview();
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __KM_GPIO_H */
+#endif /* __XPT2046_MAGIC_STRINGS_H */

@@ -70,11 +70,11 @@ static void gc_send_command(uint8_t command, const uint8_t length, const uint8_t
     }
 }
 
-#else
+#else 
 
-static void gc_send_command(uint8_t command, const uint8_t length, const uint8_t data[]) {
+static void gc_send_command_4lines(uint8_t command, const uint8_t length, const uint8_t data[]) {
     // Command to send..
-
+    
     km_gpio_write (command_select, 0);
     km_gpio_write (chip_select, 0);
     km_spi_send(spi_bus, &command, 1, 100);
@@ -86,6 +86,62 @@ static void gc_send_command(uint8_t command, const uint8_t length, const uint8_t
       km_gpio_write (chip_select, 0);
       km_spi_send(spi_bus, (uint8_t*) data, length, 100);
       km_gpio_write (chip_select, 1);
+    }
+}
+
+static void gc_send_command_3lines(uint8_t command, const uint8_t length, const uint8_t data[]) {
+    // Command to send..
+    uint8_t buffer[2];
+    buffer[0] = (command >> 1);
+
+    if (length == 0) {
+        // command to folow (0), will be partially send (broken) no effect..
+        buffer[1] = (command & 0x01) << 7;
+    }
+    else {
+        // Prepare fr sending the associated data.. Byte [0]
+        buffer[1] = ((command & 0x01) << 7) | 0x40 | ((data[0] >> 2) & 0x3F);
+    }
+
+    km_gpio_write (chip_select, 0);
+    km_spi_send(spi_bus, buffer, 2, 100);
+
+    // Send the data that go with the command..
+    if (length == 0) {
+       km_gpio_write (chip_select, 1);
+    }
+    else {
+      uint8_t left = 2;
+      uint8_t index = 0;
+
+      while (index < length) {
+        if (left == 8) {
+          buffer[0] =  0x80 | (data[index] >> 1);
+          left = 1;
+        }
+        else {
+          if (index == (length-1)) {
+            // We are handling the last byte..
+            buffer[0] =  ((data[index] & ((1 << left) - 1)) << (8 - left));
+          }
+          else {
+            buffer[0] =  ((data[index] & ((1 << left) - 1)) << (8 - left)) | (1 << (7 - left)) | (data[index+1] >> ( 8 - (7 - left)));
+            left = (8 - (7 - left));
+          }
+          index++;
+        }
+        km_spi_send(spi_bus, (uint8_t*) buffer, 1, 100);
+      }
+      km_gpio_write (chip_select, 1);
+    }
+}
+
+static void gc_send_command(uint8_t command, const uint8_t length, const uint8_t data[]) {
+    if (command_select == (uint8_t)(~0)) {
+        gc_send_command_3lines(command, length, data);
+    }
+    else {
+        gc_send_command_4lines(command, length, data);
     }
 }
 
@@ -118,40 +174,63 @@ static void gc_initialize_display() {
   gc_send_command(0x36,  sizeof(data_36), data_36);
 }
 
-/* 
- */
-static void gc_fill_area(uint16_t x, uint16_t y, uint16_t width, uint16_t height, gc_color color) {
-    uint8_t point[4];
-    uint32_t pixels = height * width;
-
-    point[0] = (x >> 8);
-    point[1] = (x & 0xFF);
-    point[2] = ((x + width - 1) >> 8);
-    point[3] = ((x + width - 1) & 0xFF);
-    gc_send_command(0x2A,  4, point);
-
-    point[0] = (y >> 8);
-    point[1] = (y & 0xFF);
-    point[2] = ((y + height) >> 8);
-    point[3] = ((y + height) & 0xFF);
-    gc_send_command(0x2B,  4, point);
-
-    gc_send_command(0x2C, 0, NULL);
-
+static void gc_send_pixels_4lines(uint32_t pixels, uint8_t red, uint8_t green, uint8_t blue) {
     // Push the pixelData through...
     // 3A -> 0x66
-    point[2] = (color & 0x00003F) << 2;
-    point[1] = (color & 0x003F00) >> 6;
-    point[0] = (color & 0x3F0000) >> 14;
-    point[0] ^= 0xFC;
-    point[1] ^= 0xFC;
-    point[2] ^= 0xFC;
+    uint8_t point[4];
+    point[2] = red   ^ 0xFC;
+    point[1] = green ^ 0xFC;
+    point[0] = blue  ^ 0xFC;
 
     km_gpio_write(chip_select, 0);
     for (uint32_t count = 0; count < pixels; count++) {
         km_spi_send(spi_bus, point, 3, 100);
     }
     km_gpio_write (chip_select, 1);
+}
+
+static void gc_send_pixels_3lines(uint32_t pixels, uint8_t red, uint8_t green, uint8_t blue) {
+    // Push the pixelData through...
+    // 3A -> 0x66
+    uint8_t point[4];
+    point[0] = 0x80 | ((blue & 0x3F) << 1);
+    point[1] = 0x40 | (green & 0x3F);
+    point[2] = 0x20 | ((red >> 1) & 0x1F);
+    point[3] = ((red & 0x01) << 7);
+
+    for (uint32_t count = 0; count < pixels; count++) {
+        km_gpio_write(chip_select, 0);
+        km_spi_send(spi_bus, point, 4, 100);
+        km_gpio_write (chip_select, 1);
+    }
+}
+
+/* 
+ */
+static void gc_fill_area(uint16_t x, uint16_t y, uint16_t width, uint16_t height, gc_color color) {
+  uint8_t point[4];
+  uint32_t pixels = height * width;
+
+  point[0] = (x >> 8);
+  point[1] = (x & 0xFF);
+  point[2] = ((x + width - 1) >> 8);
+  point[3] = ((x + width - 1) & 0xFF);
+  gc_send_command(0x2A,  4, point);
+
+  point[0] = (y >> 8);
+  point[1] = (y & 0xFF);
+  point[2] = ((y + height) >> 8);
+  point[3] = ((y + height) & 0xFF);
+  gc_send_command(0x2B,  4, point);
+
+  gc_send_command(0x2C, 0, NULL);
+
+  if (command_select == (uint8_t)(~0)) {
+    gc_send_pixels_3lines(pixels, (color & 0x00003F), ((color & 0x003F00) >> 8), ((color & 0x3F0000) >>16)); 
+  }
+  else {
+    gc_send_pixels_4lines(pixels, (color & 0x00003F), ((color & 0x003F00) >> 8), ((color & 0x3F0000) >>16)); 
+  }
 }
 
 static bool gc_adjust_coordinates(gc_handle_t *handle, int16_t* x, int16_t* y) {
@@ -230,14 +309,16 @@ uint16_t gc_prim_16bit_setup(gc_handle_t* handle, jerry_value_t options) {
   handle->fill_screen_cb = gc_prim_16bit_fill_screen;
 
   spi_bus        = (uint8_t) jerryxx_get_property_number(options, keyword_bus, 1);
-  command_select = (uint8_t) jerryxx_get_property_number(options, keyword_cmd_select, 8);
+  command_select = (uint8_t) jerryxx_get_property_number(options, keyword_cmd_select, ~0);
   chip_select    = (uint8_t) jerryxx_get_property_number(options, keyword_chip_select, 9);
   uint8_t reset  = (uint8_t) jerryxx_get_property_number(options, keyword_reset, 0);
 
   km_gpio_set_io_mode(chip_select, KM_GPIO_IO_MODE_OUTPUT);
-  km_gpio_set_io_mode(command_select, KM_GPIO_IO_MODE_OUTPUT);
   km_gpio_write (chip_select, 1);
-  km_gpio_write (command_select, 1);
+  if (command_select != (uint8_t)(~0)) {
+    km_gpio_set_io_mode(command_select, KM_GPIO_IO_MODE_OUTPUT);
+    km_gpio_write (command_select, 1);
+  }
 
   if (reset != 0) {
     km_gpio_set_io_mode(reset, KM_GPIO_IO_MODE_OUTPUT);

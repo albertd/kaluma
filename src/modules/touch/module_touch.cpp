@@ -26,6 +26,8 @@ public:
     Touch(uint8_t bus, const uint8_t ce, const uint8_t irq, const uint16_t inhibition, jerry_value_t report)
         : _bus(bus)
         , _ce(ce)
+        , _a1(~0)
+        , _index(~0)
         , _irq(irq)
         , _delay(inhibition)
         , _lastAquire(0)
@@ -34,6 +36,23 @@ public:
         km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
         km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT);
         km_gpio_write(_ce, KM_GPIO_HIGH);
+        _theTouch = this;
+    }
+    Touch(uint8_t bus, const uint8_t a0, const uint8_t a1, const uint8_t index, const uint8_t irq, const uint16_t inhibition, jerry_value_t report)
+        : _bus(bus)
+        , _ce(a0)
+        , _a1(a1)
+        , _index(index)
+        , _irq(irq)
+        , _delay(inhibition)
+        , _lastAquire(0)
+        , _pressed(false)
+        , _report(report) {
+        km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+        km_gpio_set_io_mode(_a1, KM_GPIO_IO_MODE_OUTPUT);
+        km_gpio_set_io_mode(_irq, KM_GPIO_IO_MODE_INPUT);
+        km_gpio_write(_ce, KM_GPIO_HIGH);
+        km_gpio_write(_a1, KM_GPIO_HIGH);
         _theTouch = this;
     }
     ~Touch() {
@@ -64,6 +83,7 @@ private:
                 _lastAquire = now + _delay;
 
                 if ( (GetTouch() == false) || (km_gpio_read(_irq) != 0) ) {
+            printf("Moving into released mode\n");
                     _pressed = false;
                 }
                 Report();
@@ -71,6 +91,7 @@ private:
         }
         else if (km_gpio_read(_irq) == 0)  {
             _pressed = true;
+            printf("Moving into pressed mode\n");
             _lastAquire = millis() + _delay;
 
             if (GetTouch() != false) {
@@ -102,7 +123,13 @@ private:
 private:
    bool GetTouch() {
         // Send out and receive the requested bytes...
-        km_gpio_write(_ce, KM_GPIO_LOW);
+        if (_index == static_cast<uint8_t>(~0)) {
+            km_gpio_write(_ce, KM_GPIO_LOW);
+        }
+        else {
+            if ((_index & 0x01) == 0) { km_gpio_write(_ce, KM_GPIO_LOW); }
+            if ((_index & 0x02) == 0) { km_gpio_write(_a1, KM_GPIO_LOW); }
+        }
         km_micro_delay(2);
 
         uint8_t data[2];
@@ -131,6 +158,9 @@ private:
 
         km_gpio_write(_ce, KM_GPIO_HIGH);
 
+        if (_index != static_cast<uint8_t>(~0)) {
+            km_gpio_write(_a1, KM_GPIO_HIGH);
+        }
         return (_Zpos >= 5);
     }
     uint64_t millis() {
@@ -140,6 +170,8 @@ private:
 private:
     uint8_t _bus;
     uint8_t _ce;
+    uint8_t _a1;
+    uint8_t _index;
     uint8_t _irq;
     uint16_t _delay;
     uint16_t _slots;
@@ -166,7 +198,8 @@ static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb}
  */
 JERRYXX_FUN(ctor_touch_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "bus");
-  JERRYXX_CHECK_ARG_NUMBER(1, "ce");
+  // JERRYXX_CHECK_ARG_OBJECT_OPT(1, "address");
+  // JERRYXX_CHECK_ARG_NUMBER_OPT(1, "ce");
   JERRYXX_CHECK_ARG_NUMBER(2, "irq");
   JERRYXX_CHECK_ARG_NUMBER(3, "delay");
   JERRYXX_CHECK_ARG_FUNCTION_OPT(4, "report");
@@ -174,7 +207,6 @@ JERRYXX_FUN(ctor_touch_fn) {
 
   // read parameters
   uint8_t bus  = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   uint8_t irq  = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   uint16_t delay = (uint16_t)JERRYXX_GET_ARG_NUMBER(3);
   jerry_value_t callback;
@@ -186,8 +218,24 @@ JERRYXX_FUN(ctor_touch_fn) {
       callback = jerry_create_undefined();
   }
 
+  Touch* object = NULL;
+  jerry_value_t address = JERRYXX_GET_ARG(1);
+  if (!jerry_value_is_object(address)) {
+    JERRYXX_CHECK_ARG_NUMBER_OPT(1, "ce");
+    uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+    printf("We have the single argument constructor: irq: %d\n", irq);
+    object = new Touch(bus, ce, irq, delay, callback);
+  }
+  else {
+    printf("We have the multi argument constructor: irq: %d\n", irq);
+    uint8_t a0 = (uint8_t)jerryxx_get_property_number(address, "a0", ~0);
+    uint8_t a1 = (uint8_t)jerryxx_get_property_number(address, "a1", ~0);
+    uint8_t index = (uint8_t)jerryxx_get_property_number(address, "index", ~0);
+
+    object = new Touch(bus, a0, a1, index, irq, delay, callback);
+  }
+
   // set native handle
-  Touch* object = new Touch(bus, ce, irq, delay, callback);
   jerry_set_object_native_pointer(this_val, object, &handle_info);
 
   return jerry_create_undefined();

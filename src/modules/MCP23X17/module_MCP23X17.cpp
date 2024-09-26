@@ -101,8 +101,22 @@ private:
         Device(const uint8_t bus, const uint8_t ce, const uint8_t address)
             : _bus(bus)
             , _ce(ce)
+            , _a1(~0)
+            , _index(~0)
             , _address(0x40 | ((address & 0x07) << 1)) {
 	    km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+            km_gpio_write(_ce, KM_GPIO_HIGH);
+        }
+        Device(const uint8_t bus, const uint8_t a0, const uint8_t a1, const uint8_t index, const uint8_t address)
+            : _bus(bus)
+            , _ce(a0)
+            , _a1(a1)
+            , _index(index)
+            , _address(0x40 | ((address & 0x07) << 1)) {
+	    km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+            km_gpio_write(_ce, KM_GPIO_HIGH);
+	    km_gpio_set_io_mode(_a1, KM_GPIO_IO_MODE_OUTPUT);
+            km_gpio_write(_a1, KM_GPIO_HIGH);
         }
         ~Device() = default;
     
@@ -194,10 +208,20 @@ private:
             uint8_t buffer[3] = { static_cast<uint8_t>(_address | 0x01), reg, 0xFF };
 
             // Send out and receive the requested bytes...
-            km_gpio_write(_ce, KM_GPIO_LOW);
+            if (_index == static_cast<uint8_t>(~0)) {
+                km_gpio_write(_ce, KM_GPIO_LOW);
+            }
+            else {
+                if ((_index & 0x01) == 0) { km_gpio_write(_ce, KM_GPIO_LOW); }
+                if ((_index & 0x02) == 0) { km_gpio_write(_a1, KM_GPIO_LOW); }
+            }
+ 
             km_micro_delay(200);
             km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
             km_gpio_write(_ce, KM_GPIO_HIGH);
+            if (_index != static_cast<uint8_t>(~0)) {
+                km_gpio_write(_a1, KM_GPIO_HIGH);
+            }
  
             return (buffer[2]);
         }
@@ -205,10 +229,19 @@ private:
             uint8_t buffer[] = { _address, reg, value};
 
             // Send out and receive the requested bytes...
-            km_gpio_write(_ce, KM_GPIO_LOW);
+            if (_index == static_cast<uint8_t>(~0)) {
+                km_gpio_write(_ce, KM_GPIO_LOW);
+            }
+            else {
+                if ((_index & 0x01) == 0) { km_gpio_write(_ce, KM_GPIO_LOW); }
+                if ((_index & 0x02) == 0) { km_gpio_write(_a1, KM_GPIO_LOW); }
+            }
             km_micro_delay(200);
             km_spi_sendrecv(_bus, buffer, buffer, sizeof(buffer), 10000);
             km_gpio_write(_ce, KM_GPIO_HIGH);
+            if (_index != static_cast<uint8_t>(~0)) {
+                km_gpio_write(_a1, KM_GPIO_HIGH);
+            }
         }
     
     private:
@@ -255,6 +288,8 @@ private:
     private:
         const uint8_t _bus;
         const uint8_t _ce;
+        const uint8_t _a1;
+        const uint8_t _index;
         const uint8_t _address;
     };
     
@@ -283,6 +318,25 @@ public:
         }
         printf ("Swap: %s\n\r", _swap ? "true" : "false");
     }
+    // bit -> Lowest Nible is the bit 0 => Port A bit 0, 8 => Port B Bit 0, highest nible is the number of bit to occupy (-1).
+    MCP23X17(const uint8_t bus, const uint8_t a0, const uint8_t a1, const uint8_t index, const uint8_t address, const uint8_t bit, trigger_mode trigger, const uint8_t character, const bool output, const bool swap = false)
+        : _device(bus, a0, a1, index, address)
+        , _swap(swap)
+        , _bits(bit)
+        , _max((1 << (((bit >> 4) & 0xF) + 1)) - 1) {
+
+        // Set the mode of the associated pins...
+        uint8_t pin = (bit & 0x0F);
+        uint16_t mask = _max;
+
+        while (mask > 0) {
+            _device.Mode(pin, !output, trigger, character);
+            pin++;
+            mask = (mask >> 1);
+        }
+        printf ("Swap: %s\n\r", _swap ? "true" : "false");
+    }
+ 
     ~MCP23X17() = default;
 
 public:
@@ -407,7 +461,6 @@ static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb}
  */
 JERRYXX_FUN(ctor_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "bus");
-  JERRYXX_CHECK_ARG_NUMBER(1, "ce");
   JERRYXX_CHECK_ARG_NUMBER(2, "address");
   JERRYXX_CHECK_ARG_NUMBER(3, "base");
   JERRYXX_CHECK_ARG_NUMBER(4, "bits");
@@ -416,7 +469,6 @@ JERRYXX_FUN(ctor_fn) {
 
   // read parameters
   uint8_t bus     = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t ce      = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   uint8_t address = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   uint8_t base    = (uint8_t)JERRYXX_GET_ARG_NUMBER(3);
   uint8_t bits    = (uint8_t)JERRYXX_GET_ARG_NUMBER(4);
@@ -454,7 +506,25 @@ JERRYXX_FUN(ctor_fn) {
       }
 
       // set native handle
-      MCP23X17* object = new MCP23X17(bus, ce, address, base, trigger, 0, output, swap);
+      MCP23X17* object = nullptr;
+
+      jerry_value_t address = JERRYXX_GET_ARG(1);
+      if (!jerry_value_is_object(address)) {
+          JERRYXX_CHECK_ARG_NUMBER_OPT(1, "ce");
+          uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+
+          printf("We have the single argument constructor: ce: %d\n", ce);
+          object = new MCP23X17(bus, ce, address, base, trigger, 0, output, swap);
+      }
+      else {
+          uint8_t a0 = (uint8_t)jerryxx_get_property_number(address, "a0", ~0);
+          uint8_t a1 = (uint8_t)jerryxx_get_property_number(address, "a1", ~0);
+          uint8_t index = (uint8_t)jerryxx_get_property_number(address, "index", ~0);
+
+          printf("We have the multi argument constructor: address: [%d,%d], index=%d\n", a0,a1, index);
+          object = new MCP23X17(bus, a0, a1, index, address, base, trigger, 0, output, swap);
+      }
+
       jerry_set_object_native_pointer(this_val, object, &handle_info);
   }
 

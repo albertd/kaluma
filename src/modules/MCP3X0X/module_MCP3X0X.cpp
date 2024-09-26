@@ -53,13 +53,32 @@ public:
     MCP3X0XType(const uint8_t bus, const uint8_t ce, const mode channel, const uint8_t average, const int16_t min=0, const int16_t max=Range)
         : _bus(bus)
         , _ce(ce)
+        , _a1(~0)
+        , _index(~0)
         , _channel(channel)
         , _average(average == 0 ? 1 : average)
         , _inverse(_min > _max)
         , _min(_inverse ? max : min)
         , _max(_inverse ? min : max) {
         km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+        km_gpio_write(_ce, KM_GPIO_HIGH);
     }
+    MCP3X0XType(const uint8_t bus, const uint8_t a0, const uint8_t a1, const uint8_t index, const mode channel, const uint8_t average, const int16_t min=0, const int16_t max=Range)
+        : _bus(bus)
+        , _ce(a0)
+        , _a1(a1)
+        , _index(index)
+        , _channel(channel)
+        , _average(average == 0 ? 1 : average)
+        , _inverse(_min > _max)
+        , _min(_inverse ? max : min)
+        , _max(_inverse ? min : max) {
+        km_gpio_set_io_mode(_ce, KM_GPIO_IO_MODE_OUTPUT);
+        km_gpio_write(_ce, KM_GPIO_HIGH);
+        km_gpio_set_io_mode(_a1, KM_GPIO_IO_MODE_OUTPUT);
+        km_gpio_write(_a1, KM_GPIO_HIGH);
+    }
+ 
     ~MCP3X0XType() = default;
 
 public:
@@ -107,7 +126,13 @@ private:
             }
 
             // Send out and receive the requested bytes...
-            km_gpio_write(_ce, KM_GPIO_LOW);
+            if (_index == static_cast<uint8_t>(~0)) {
+                km_gpio_write(_ce, KM_GPIO_LOW);
+            }
+            else {
+                if ((_index & 0x01) == 0) { km_gpio_write(_ce, KM_GPIO_LOW); }
+                if ((_index & 0x02) == 0) { km_gpio_write(_a1, KM_GPIO_LOW); }
+            }
             km_micro_delay(100);
 
             while (index < _average) {
@@ -131,6 +156,9 @@ private:
                 index++;
             }
             km_gpio_write(_ce, KM_GPIO_HIGH);
+            if (_index == static_cast<uint8_t>(~0)) {
+                km_gpio_write(_a1, KM_GPIO_HIGH);
+            }
         }
 
         // Just calcuate the Average, for now, maybe later we make it more advanced :-)
@@ -152,6 +180,8 @@ private:
 private:
     const uint8_t _bus;
     const uint8_t _ce;
+    const uint8_t _a1;
+    const uint8_t _index;
     mode          _channel;
     uint8_t       _average;
     bool          _inverse;
@@ -178,14 +208,12 @@ static const jerry_object_native_info_t handle_info = {.free_cb = handle_freecb}
  */
 JERRYXX_FUN(ctor_MCP3208_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "bus");
-  JERRYXX_CHECK_ARG_NUMBER(1, "ce");
   JERRYXX_CHECK_ARG_NUMBER(2, "channel");
   JERRYXX_CHECK_ARG_NUMBER(3, "differenial");
   JERRYXX_CHECK_ARG_NUMBER(4, "average");
 
   // read parameters
   uint8_t bus  = (uint8_t)JERRYXX_GET_ARG_NUMBER(0);
-  uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
   uint8_t line = (uint8_t)JERRYXX_GET_ARG_NUMBER(2);
   bool diffrential = (bool)JERRYXX_GET_ARG_NUMBER(3);
   uint8_t average = 1;
@@ -195,7 +223,26 @@ JERRYXX_FUN(ctor_MCP3208_fn) {
   }
 
   // set native handle
-  MCP3208* object = new MCP3208(bus, ce, MCP3208::ToChannel(line, diffrential), average);
+  MCP3208* object = nullptr;
+
+  jerry_value_t address = JERRYXX_GET_ARG(1);
+  if (!jerry_value_is_object(address)) {
+    JERRYXX_CHECK_ARG_NUMBER_OPT(1, "ce");
+    uint8_t ce   = (uint8_t)JERRYXX_GET_ARG_NUMBER(1);
+
+    printf("We have the single argument constructor: ce: %d\n", ce);
+    object = new MCP3208(bus, ce, MCP3208::ToChannel(line, diffrential), average);
+  }
+  else {
+    uint8_t a0 = (uint8_t)jerryxx_get_property_number(address, "a0", ~0);
+    uint8_t a1 = (uint8_t)jerryxx_get_property_number(address, "a1", ~0);
+    uint8_t index = (uint8_t)jerryxx_get_property_number(address, "index", ~0);
+
+    printf("We have the multi argument constructor: address: [%d,%d], index=%d\n", a0,a1, index);
+    object = new MCP3208(bus, a0, a1, index, MCP3208::ToChannel(line, diffrential), average);
+  }
+
+  // set native handle
   jerry_set_object_native_pointer(this_val, object, &handle_info);
 
   return jerry_create_undefined();

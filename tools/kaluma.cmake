@@ -20,7 +20,7 @@ set(JERRY_INC
   ${JERRY_ROOT}/jerry-libm)
 
 set(JERRY_ARGS
-  --toolchain=cmake/${JERRY_TOOLCHAIN}
+  --toolchain=${JERRY_TOOLCHAIN}
   #--build-type=Debug
   --compile-flag="-DJERRY_NDEBUG=1 -DJERRY_LCACHE=0 -DJERRY_PROPRETY_HASHMAP=0"
   --lto=OFF

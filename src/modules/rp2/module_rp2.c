@@ -48,7 +48,7 @@
 
 #define __RP2_TEMP_ADC_PORT 30
 
-static jerry_value_t __pio_call_back[PIO_NUM];
+static jerry_value_t __pio_call_back[NUM_PIOS];
 
 static PIO __pio(uint8_t pio) {
   if (pio == 0) {
@@ -513,7 +513,7 @@ JERRYXX_FUN(dormant_fn) {
 jerry_value_t module_rp2_init() {
   irq_set_exclusive_handler(PIO0_IRQ_0, __pio0_irq_0_handler);
   irq_set_exclusive_handler(PIO1_IRQ_0, __pio1_irq_0_handler);
-  for (int i = 0; i < PIO_NUM; i++) {
+  for (int i = 0; i < NUM_PIOS; i++) {
     __pio_call_back[i] = jerry_create_undefined();
   }
 

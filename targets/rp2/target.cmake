@@ -3,7 +3,7 @@
 ######################################
 
 # debug build?
-set(DEBUG 1)
+#set(DEBUG 1)
 
 # optimization
 set(OPT -Og)
@@ -13,8 +13,21 @@ if(NOT BOARD)
   set(BOARD "pico-w")
 endif()
 
-if(BOARD STREQUAL "pico-w")
-  set(PICO_BOARD pico_w)
+# default chip: rp2040
+if(NOT CHIP)
+  set(CHIP "rp2040")
+endif()
+
+if (CHIP STREQUAL "rp2350")
+  set(BOARD "pico")
+  set(PICO_BOARD "pico2")
+else()
+  set(CHIP "rp2040")
+  if(BOARD STREQUAL "pico-w")
+    set(PICO_BOARD "pico_w")
+  else()
+    set(PICO_BOARD "pico")
+  endif()
 endif()
 
 # default modules
@@ -50,6 +63,10 @@ if(NOT MODULES)
 endif()
 
 set(PICO_SDK_PATH ${CMAKE_SOURCE_DIR}/lib/pico-sdk)
+set(PICO_PLATFORM ${CHIP})
+
+#set(PICOTOOL_FETCH_FROM_GIT_PATH ${OUTPUT_TARGET})
+#set(PICOTOOL_FORCE_FETCH_FROM_GIT true)
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
 project(kaluma-project C CXX ASM)
@@ -80,21 +97,7 @@ set(SOURCES
 include_directories(${TARGET_INC_DIR} ${BOARD_DIR})
 
 set(TARGET_HEAPSIZE 180)
-set(JERRY_TOOLCHAIN toolchain_mcu_cortexm0plus.cmake)
-
-set(CMAKE_SYSTEM_PROCESSOR cortex-m0plus)
-set(CMAKE_C_FLAGS "-march=armv6-m -mcpu=cortex-m0plus -mthumb ${OPT} -Wall -fdata-sections -ffunction-sections")
-if(DEBUG EQUAL 1)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -gdwarf-2")
-endif()
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD -MP")
-
-set(PREFIX arm-none-eabi-)
-set(CMAKE_ASM_COMPILER ${PREFIX}gcc)
-set(CMAKE_C_COMPILER ${PREFIX}gcc)
-set(CMAKE_CXX_COMPILER ${PREFIX}g++)
-set(CMAKE_LINKER ${PREFIX}ld)
-set(CMAKE_OBJCOPY ${PREFIX}objcopy)
+set(JERRY_TOOLCHAIN ${CMAKE_TOOLCHAIN_FILE})
 
 set(TARGET_LIBS c nosys m
   pico_stdlib
@@ -109,20 +112,18 @@ set(TARGET_LIBS c nosys m
   hardware_rtc
   hardware_watchdog
   hardware_sync)
-set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs -u _printf_float -Wl,-Map=${OUTPUT_TARGET}.map,--cref,--gc-sections")
-
-# For the pico-w board
 if(BOARD STREQUAL "pico-w")
-  # modules for pico-w
   set(MODULES
   ${MODULES}
   pico_cyw43)
-  # libs for pico-w
   set(TARGET_LIBS
   ${TARGET_LIBS}
   pico_lwip
   pico_cyw43_arch_lwip_poll)
 endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OPT} -Wall -fdata-sections -ffunction-sections")
+set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs -u _printf_float -Wl,-Map=${OUTPUT_TARGET}.map,--cref,--gc-sections")
 
 include(${CMAKE_SOURCE_DIR}/tools/kaluma.cmake)
 add_executable(${OUTPUT_TARGET} ${SOURCES} ${JERRY_LIBS})

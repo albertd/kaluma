@@ -71,12 +71,12 @@
 #define KALUMA_GPIO_COUNT 29
 // #define ADC_NUM 3
 #define PWM_NUM 27
-#define I2C_NUM 2
-#define SPI_NUM 2
-#define UART_NUM 2
+// #define I2C_NUM 2
+// #define SPI_NUM 2
+// #define UART_NUM 2
 // #define LED_NUM 1
 // #define BUTTON_NUM 0
-#define PIO_NUM 2
+// #define PIO_NUM 2
 #define PIO_SM_NUM 4
 
 #define ADC_RESOLUTION_BIT 12

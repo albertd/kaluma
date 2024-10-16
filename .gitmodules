@@ -1,6 +1,6 @@
 [submodule "lib/jerryscript"]
 	path = lib/jerryscript
-  url = https://github.com/kaluma-project/jerryscript.git
+	url = https://github.com/albertd/jerryscript.git
 [submodule "lib/pico-sdk"]
 	path = lib/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git

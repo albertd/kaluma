@@ -88,9 +88,9 @@ set(TARGET_LIBS c nosys m
   hardware_uart
   hardware_pio
   hardware_flash
-  hardware_rtc
   hardware_watchdog
-  hardware_sync)
+  hardware_sync
+  pico_aon_timer)
 
 if(PICO_CYW43_SUPPORTED)
   set(MODULES ${MODULES} pico_cyw43)

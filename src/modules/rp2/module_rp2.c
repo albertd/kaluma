@@ -448,9 +448,11 @@ JERRYXX_FUN(dormant_fn) {
   // CLK ADC = 0MHz
   clock_stop(clk_adc);
   // CLK RTC = ideally XOSC (12MHz) / 256 = 46875Hz but could be rosc
+  #if PICO_RP2040
   uint clk_rtc_src = CLOCKS_CLK_RTC_CTRL_AUXSRC_VALUE_XOSC_CLKSRC;
   clock_configure(clk_rtc, 0,  // No GLMUX
                   clk_rtc_src, src_hz, 46875);
+  #endif
   // CLK PERI = clk_sys. Used as reference clock for Peripherals. No dividers so
   // just select and enable
   clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
@@ -496,11 +498,13 @@ JERRYXX_FUN(dormant_fn) {
                   0,  // No GLMUX
                   CLOCKS_CLK_ADC_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 48 * MHZ,
                   48 * MHZ);
+  #if PICO_RP2040
   // CLK RTC = PLL USB (48MHz) / 1024 = 46875Hz
   clock_configure(clk_rtc,
                   0,  // No GLMUX
                   CLOCKS_CLK_RTC_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 48 * MHZ,
                   46875);
+  #endif
   // CLK PERI = clk_sys. Used as reference clock for Peripherals. No dividers so
   // just select and enable Normally choose clk_sys or clk_usb
   clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,

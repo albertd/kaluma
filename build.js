@@ -34,7 +34,6 @@ function build() {
   const params = [".."];
   if (argv.target) params.push(`-DTARGET=${argv.target}`);
   if (argv.board) params.push(`-DBOARD=${argv.board}`);
-  if (argv.chip) params.push(`-DCHIP=${argv.chip}`);
   if (argv.modules) params.push(`-DMODULES=${argv.modules}`);
 
   // build everything

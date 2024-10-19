@@ -2,32 +2,12 @@
 # building variables
 ######################################
 
-# debug build?
-#set(DEBUG 1)
-
 # optimization
 set(OPT -Og)
 
 # default board: pico-w
 if(NOT BOARD)
-  set(BOARD "pico-w")
-endif()
-
-# default chip: rp2040
-if(NOT CHIP)
-  set(CHIP "rp2040")
-endif()
-
-if (CHIP STREQUAL "rp2350")
-  set(BOARD "pico")
-  set(PICO_BOARD "pico2")
-else()
-  set(CHIP "rp2040")
-  if(BOARD STREQUAL "pico-w")
-    set(PICO_BOARD "pico_w")
-  else()
-    set(PICO_BOARD "pico")
-  endif()
+  set(BOARD "pico_w")
 endif()
 
 # default modules
@@ -63,16 +43,15 @@ if(NOT MODULES)
 endif()
 
 set(PICO_SDK_PATH ${CMAKE_SOURCE_DIR}/lib/pico-sdk)
-set(PICO_PLATFORM ${CHIP})
+set(PICO_BOARD ${BOARD})
 
-#set(PICOTOOL_FETCH_FROM_GIT_PATH ${OUTPUT_TARGET})
-#set(PICOTOOL_FORCE_FETCH_FROM_GIT true)
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
 project(kaluma-project C CXX ASM)
 
 # initialize the Pico SDK
 pico_sdk_init()
+
 set(OUTPUT_TARGET kaluma-${TARGET}-${BOARD}-${VER})
 set(TARGET_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 set(TARGET_INC_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
@@ -112,14 +91,10 @@ set(TARGET_LIBS c nosys m
   hardware_rtc
   hardware_watchdog
   hardware_sync)
-if(BOARD STREQUAL "pico-w")
-  set(MODULES
-  ${MODULES}
-  pico_cyw43)
-  set(TARGET_LIBS
-  ${TARGET_LIBS}
-  pico_lwip
-  pico_cyw43_arch_lwip_poll)
+
+if(PICO_CYW43_SUPPORTED)
+  set(MODULES ${MODULES} pico_cyw43)
+  set(TARGET_LIBS ${TARGET_LIBS} pico_lwip pico_cyw43_arch_lwip_poll)
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OPT} -Wall -fdata-sections -ffunction-sections")
@@ -128,6 +103,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs -u _printf_float -Wl,-Map=${OUTPUT
 include(${CMAKE_SOURCE_DIR}/tools/kaluma.cmake)
 add_executable(${OUTPUT_TARGET} ${SOURCES} ${JERRY_LIBS})
 target_link_libraries(${OUTPUT_TARGET} ${JERRY_LIBS} ${TARGET_LIBS})
+
 # Enable USB output, disable UART output
 pico_enable_stdio_usb(${OUTPUT_TARGET} 1)
 pico_enable_stdio_uart(${OUTPUT_TARGET} 0)

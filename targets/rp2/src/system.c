@@ -29,7 +29,6 @@
 #include "hardware/gpio.h"
 #include "hardware/pll.h"
 #include "hardware/regs/io_bank0.h"
-#include "hardware/xosc.h"
 #include "hardware/pio.h"
 #include "i2c.h"
 #include "io.h"
@@ -41,10 +40,10 @@
 #include "tty.h"
 #include "tusb.h"
 #include "uart.h"
-#ifdef PICO_CYW43
+#ifdef CYW43_PIN_WL_REG_ON
 #include "module_pico_cyw43.h"
 #include <pico/cyw43_arch.h>
-#endif /* PICO_CYW43 */
+#endif /* CYW43_PIN_WL_REG_ON */
 
 static char serial[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
 
@@ -119,7 +118,7 @@ void km_system_init() {
 }
 
 void km_system_cleanup() {
-#ifdef PICO_CYW43
+#ifdef CYW43_PIN_WL_REG_ON
   km_cyw43_deinit();
 #endif
   km_adc_cleanup();
@@ -141,7 +140,7 @@ uint8_t km_running_script_check() {
 }
 
 void km_custom_infinite_loop() {
-#ifdef PICO_CYW43
+#ifdef CYW43_PIN_WL_REG_ON
   km_cyw43_infinite_loop();
 #endif
 }

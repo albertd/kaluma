@@ -115,6 +115,4 @@
 #define MSTR_RP2_PIO_SM_DRAIN_TXFIFO "pio_sm_drain_txfifo"
 #define MSTR_RP2_PIO_SM_IRQ "pio_sm_irq"
 
-#define MSTR_RP2_DORMANT "dormant"
-
 #endif /* __PIO_MAGIC_STRINGS_H */

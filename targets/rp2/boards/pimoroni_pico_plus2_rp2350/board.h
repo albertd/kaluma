@@ -23,48 +23,46 @@
 #define __RP2_PICO_H
 
 #include "jerryscript.h"
-
-// system
-#define KALUMA_SYSTEM_ARCH "cortex-m0-plus"
-#define KALUMA_SYSTEM_PLATFORM "rp2"
+#include "hardware/flash.h"
 
 // repl
 #define KALUMA_REPL_BUFFER_SIZE 1024
 #define KALUMA_REPL_HISTORY_SIZE 10
 
+
 // Flash allocation map
 //
-// |         A        | B |     C     |     D     |
-// |------------------|---|-----------|-----------|
-// |      1008K       |16K|   512K    |   512K    |
+// |         A        | B |     C     |     D      |
+// |------------------|---|-----------|------------|
+// |      1008K       |16K|   512K    |   14848K   |
 //
 // - A : binary (firmware)
 // - B : storage (key-value database)
 // - C : user program (js)
 // - D : file system (lfs)
-// (Total : 2MB)
+// (Total : 16MB)
 
 // binary (1008KB)
-#define KALUMA_BINARY_MAX 0xFC000
+#define KALUMA_BINARY_MAX 1008 * 1024
 
-// flash (B + C + D = 1040KB (=16KB + 1024KB))
+// flash (B + C + D = mimimal 1040KB)
 #define KALUMA_FLASH_OFFSET KALUMA_BINARY_MAX
-#define KALUMA_FLASH_SECTOR_SIZE 4096
-#define KALUMA_FLASH_SECTOR_COUNT 260
-#define KALUMA_FLASH_PAGE_SIZE 256
-
-// user program on flash (512KB)
-#define KALUMA_PROG_SECTOR_BASE 4
-#define KALUMA_PROG_SECTOR_COUNT 128
+#define KALUMA_FLASH_SECTOR_SIZE FLASH_SECTOR_SIZE
+#define KALUMA_FLASH_SECTOR_COUNT (PICO_FLASH_SIZE_BYTES - KALUMA_BINARY_MAX) / KALUMA_FLASH_SECTOR_SIZE
+#define KALUMA_FLASH_PAGE_SIZE FLASH_PAGE_SIZE
 
 // storage on flash (16KB)
 #define KALUMA_STORAGE_SECTOR_BASE 0
-#define KALUMA_STORAGE_SECTOR_COUNT 4
+#define KALUMA_STORAGE_SECTOR_COUNT (16 * 1024) / KALUMA_FLASH_SECTOR_SIZE
 
-// file system on flash (512K)
-// - sector base : 132
-// - sector count : 128
-// - use block device : new Flash(132, 128)
+// user program on flash (512KB)
+#define KALUMA_PROG_SECTOR_BASE KALUMA_STORAGE_SECTOR_COUNT
+#define KALUMA_PROG_SECTOR_COUNT (512 * 1024) / KALUMA_FLASH_SECTOR_SIZE
+
+// file system on flash (16384KB - (A + B + C) = 14848KB)
+// - sector base : 132 (16KB + 512KB)
+// - sector count : 3625 (14848KB)
+// - use block device : new Flash(132, 3625)
 
 // -----------------------------------------------------------------
 

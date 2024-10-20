@@ -1,6 +1,5 @@
 // initialize board object
 global.board.name = "pico";
-global.board.LED = 25;
 
 // mount lfs on "/"
 const fs = require("fs");

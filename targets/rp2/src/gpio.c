@@ -43,9 +43,9 @@ void km_gpio_init() {
     gpio_init(i);
     gpio_set_pulls(i, false, false);
   }
-#ifdef WIFI_EN_GPIO
-  gpio_set_dir(WIFI_EN_GPIO, true);  // Set OUTPUT
-  gpio_put(WIFI_EN_GPIO, 0);         // WIFI OFF
+#ifdef CYW43_PIN_WL_REG_ON
+  gpio_set_dir(CYW43_PIN_WL_REG_ON, true);  // Set OUTPUT
+  gpio_put(CYW43_PIN_WL_REG_ON, 0);         // WIFI OFF
 #endif
 }
 

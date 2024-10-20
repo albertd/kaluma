@@ -10,6 +10,9 @@ if(NOT BOARD)
   set(BOARD "pico_w")
 endif()
 
+# boards
+set(BOARDS_DIR ${CMAKE_CURRENT_LIST_DIR}/boards)
+
 # default modules
 if(NOT MODULES)
   set(MODULES
@@ -44,6 +47,11 @@ endif()
 
 set(PICO_SDK_PATH ${CMAKE_SOURCE_DIR}/lib/pico-sdk)
 set(PICO_BOARD ${BOARD})
+set(PICO_BOARD_HEADER_DIRS ${BOARDS_DIR})
+
+if(CYW43)
+  set(PICO_CYW43_SUPPORTED ON)
+endif()
 
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
@@ -52,10 +60,13 @@ project(kaluma-project C CXX ASM)
 # initialize the Pico SDK
 pico_sdk_init()
 
+add_compile_definitions(KALUMA_SYSTEM_ARCH="${CMAKE_SYSTEM_PROCESSOR}")
+add_compile_definitions(KALUMA_SYSTEM_PLATFORM="${TARGET}")
+
 set(OUTPUT_TARGET kaluma-${TARGET}-${BOARD}-${VER})
 set(TARGET_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 set(TARGET_INC_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
-set(BOARD_DIR ${CMAKE_CURRENT_LIST_DIR}/boards/${BOARD})
+set(BOARD_DIR ${BOARDS_DIR}/${BOARD})
 
 set(SOURCES
   ${SOURCES}

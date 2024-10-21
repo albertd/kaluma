@@ -31,7 +31,7 @@
 #include "pico/stdlib.h"
 
 static int __check_gpio(uint8_t pin) {
-  if (pin <= KALUMA_GPIO_COUNT) {
+  if (pin < NUM_BANK0_GPIOS) {
     return 0;
   } else {
     return EINVPIN;

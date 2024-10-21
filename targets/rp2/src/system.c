@@ -90,14 +90,21 @@ static void km_uid_init() {
 }
 
 static void km_pio_init() {
-  for (int i = 0; i < PIO_SM_NUM; i++) {
+  for (int i = 0; i < NUM_PIO_STATE_MACHINES; i++) {
     if (pio_sm_is_claimed(pio0, i))
       pio_sm_unclaim(pio0, i);
     if (pio_sm_is_claimed(pio1, i))
       pio_sm_unclaim(pio1, i);
+#if PICO_RP2350
+    if (pio_sm_is_claimed(pio2, i))
+      pio_sm_unclaim(pio2, i);
+#endif
   }
   pio_clear_instruction_memory(pio0);
   pio_clear_instruction_memory(pio1);
+#if PICO_RP2350
+  pio_clear_instruction_memory(pio2);
+#endif
 }
 
 /**

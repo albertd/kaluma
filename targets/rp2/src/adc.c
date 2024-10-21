@@ -36,8 +36,8 @@
  * @return Returns index on success or EINVPIN on failure.
  */
 static int __get_adc_index(uint8_t pin) {
-  if ((pin >= 26) && (pin <= 30)) {
-    return pin - 26;  // GPIO 26 is channel 0
+  if ((pin >= ADC_BASE_PIN) && (pin < (ADC_BASE_PIN + NUM_ADC_CHANNELS))) {
+    return pin - ADC_BASE_PIN;  // GPIO 26 is channel 0
   }
   return EINVPIN;
 }
@@ -65,9 +65,6 @@ double km_adc_read(uint8_t adcIndex) {
 }
 
 int km_adc_setup(uint8_t pin) {
-
-
-  
   int ch = __get_adc_index(pin);
   if (ch < 0) {
     return EINVPIN;

@@ -43,6 +43,10 @@ static PIO __pio(uint8_t pio) {
     return pio0;
   } else if (pio == 1) {
     return pio1;
+#if PICO_RP2350
+  } else if (pio == 2) {
+    return pio2;
+#endif
   }
   return NULL;
 }
@@ -78,6 +82,16 @@ void __pio1_irq_0_handler(void) {
   _pio->irq = ints;
   __pio_handler(1, ints);
 }
+
+#if PICO_RP2350
+void __pio2_irq_0_handler(void) {
+  PIO _pio = __pio(2);
+  uint32_t ints = _pio->ints0;
+  ints >>= 8;
+  _pio->irq = ints;
+  __pio_handler(2, ints);
+}
+#endif
 
 JERRYXX_FUN(pio_add_program_fn) {
   JERRYXX_CHECK_ARG_NUMBER(0, "pio");
@@ -375,10 +389,16 @@ JERRYXX_FUN(pio_sm_irq_fn) {
     _pio->inte0 = __PIO_INT_FULL;
     irq_set_mask_enabled((1u << PIO0_IRQ_0), true);
     irq_set_enabled(PIO0_IRQ_0, true);
-  } else {
+  } else if (pio == 1) {
     _pio->inte0 = __PIO_INT_FULL;
     irq_set_mask_enabled((1u << PIO1_IRQ_0), true);
     irq_set_enabled(PIO1_IRQ_0, true);
+#if PICO_RP2350
+  } else {
+    _pio->inte0 = __PIO_INT_FULL;
+    irq_set_mask_enabled((1u << PIO2_IRQ_0), true);
+    irq_set_enabled(PIO2_IRQ_0, true);
+#endif
   }
   __pio_call_back[pio] = jerry_acquire_value(callback);
 
@@ -391,6 +411,9 @@ JERRYXX_FUN(pio_sm_irq_fn) {
 jerry_value_t module_rp2_init() {
   irq_set_exclusive_handler(PIO0_IRQ_0, __pio0_irq_0_handler);
   irq_set_exclusive_handler(PIO1_IRQ_0, __pio1_irq_0_handler);
+#if PICO_RP2350
+  irq_set_exclusive_handler(PIO2_IRQ_0, __pio2_irq_0_handler);
+#endif
   for (int i = 0; i < NUM_PIOS; i++) {
     __pio_call_back[i] = jerry_create_undefined();
   }

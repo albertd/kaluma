@@ -25,8 +25,7 @@
 #include "pico/stdlib.h"
 
 void km_rtc_init() {
-  struct timespec ts = { 0, 0 };
-  aon_timer_start(&ts);
+  aon_timer_start_with_timeofday();
 }
 
 void km_rtc_cleanup() {
@@ -42,5 +41,5 @@ void km_rtc_set_time(uint64_t time) {
 uint64_t km_rtc_get_time() {
   struct timespec ts;
   aon_timer_get_time(&ts);
-  return ts.tv_sec;
+  return (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
 }
